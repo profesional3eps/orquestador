@@ -873,3 +873,52 @@ class SqlServerRepository:
             es_administrador=False,
             modulos=modulos_dto,
         )
+
+    def guardar_soporte_orden_medica_ips(
+        self,
+        *,
+        consecutivo_solicitud: int,
+        consecutivo_solicitud_ips: int | None,
+        archivo_info: dict,
+        usuario: str,
+        ip: str | None,
+    ) -> None:
+        query = text("""
+            INSERT INTO orq.soporte_orden_medica_ips (
+                consecutivo_solicitud,
+                consecutivo_solicitud_ips,
+                nombre_archivo,
+                ruta_archivo,
+                extension,
+                tipo_mime,
+                tamano_bytes,
+                usuario_carga,
+                ip_carga
+            )
+            VALUES (
+                :consecutivo_solicitud,
+                :consecutivo_solicitud_ips,
+                :nombre_archivo,
+                :ruta_archivo,
+                :extension,
+                :tipo_mime,
+                :tamano_bytes,
+                :usuario_carga,
+                :ip_carga
+            )
+        """)
+    
+        self.db.execute(query, {
+            "consecutivo_solicitud": consecutivo_solicitud,
+            "consecutivo_solicitud_ips": consecutivo_solicitud_ips,
+            "nombre_archivo": archivo_info.get("nombre_archivo", "")[:255],
+            "ruta_archivo": archivo_info.get("ruta_archivo", "")[:500],
+            "extension": archivo_info.get("extension", "")[:10],
+            "tipo_mime": archivo_info.get("tipo_mime", "")[:100],
+            "tamano_bytes": archivo_info.get("tamano_bytes", 0),
+            "usuario_carga": (usuario[:100] if usuario else None),
+            "ip_carga": (ip[:45] if ip else None),  # IPv6 max
+        })
+        self.db.commit()
+
+    

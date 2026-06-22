@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
+from app.core.files import guardar_soporte_pdf
 from app.core.soporte_orden_medica import validar_soporte_orden_medica_pdf
 from app.core.afiliado_estado import (
     ESTADOS_PERMITIDOS_AUTORIZACION_IPS,
@@ -1992,6 +1993,8 @@ def registrar_autorizacion_orden_medica_ips(
         "registro_profesional": registro_profesional.strip(),
     }
 
+
+
     try:
         medicamentos = _parse_json_array_field(medicamentos_json, "medicamentos_json")
         request_ctx["total_medicamentos"] = len(medicamentos)
@@ -2064,6 +2067,24 @@ def registrar_autorizacion_orden_medica_ips(
 
         ips_auth = out.get("ips_autorizada")
         prestador = out.get("prestador_resuelto")
+
+        archivo_info = guardar_soporte_pdf(
+            soporte_orden_medica,
+            username=username,
+        )
+
+        # Validar antes de convertir
+        if not out.get("consecutivo_solicitud"):
+            raise ValueError("consecutivo_solicitud no puede ser None")
+        
+        sql_repo.guardar_soporte_orden_medica_ips(
+            consecutivo_solicitud=int(out["consecutivo_solicitud"]) or "",
+            consecutivo_solicitud_ips=int(out["consecutivo_solicitud_ips"]) or "",
+            archivo_info=archivo_info,
+            usuario=username,
+            ip=client_ip,
+        )
+        
         return AutorizacionOrdenMedicaIpsResponse(
             consecutivo_solicitud=int(out["consecutivo_solicitud"]),
             consecutivo_solicitud_ips=int(out["consecutivo_solicitud_ips"]),
