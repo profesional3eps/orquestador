@@ -1,0 +1,509 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="ssActivacion" pageWidth="612" pageHeight="792" columnWidth="522" leftMargin="45" rightMargin="45" topMargin="20" bottomMargin="20" uuid="a58b0a15-a1e9-49e0-971d-b43ccb4187ff">
+	<property name="ireport.zoom" value="1.3310000000000068"/>
+	<property name="ireport.x" value="65"/>
+	<property name="ireport.y" value="273"/>
+	<parameter name="CONSECUTIVO" class="java.lang.String"/>
+	<parameter name="RUTA" class="java.lang.String"/>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["/home/system/Escritorio/reportes jasper/"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="EMPRESA" class="java.lang.String" isForPrompting="false"/>
+	<queryString>
+		<![CDATA[select a.pin as codigoActivacion,
+       a.numero_identificacion_afiliado,
+       a.tipo_identificacion_afiliado,
+       a.razon_social_prestador,
+       a.nit_prestador,
+	   case when a.consecutivo_sede is null then ci.direccion else s.direccion end as direccion,
+	   case when a.consecutivo_sede is null then tm.descripcion else tms.descripcion end as descripcion,
+	   case when a.consecutivo_sede is null then concat(tm.descripcion, '/', tm2.descripcion) else concat(tms.descripcion, '/', tm2s.descripcion) end as municipio,
+	   case when a.consecutivo_sede is null then ci.telefono else s.telefono end as telefono,
+	   case when a.consecutivo_sede is null then ci.call_center else s.telefono end as call_center,
+
+       concat(a.primer_nombre_afiliado, ' ', coalesce(a.segundo_nombre_afiliado,''), ' ', a.primer_apellido_afiliado, ' ',
+       coalesce(a.segundo_apellido_afiliado, ''))  as afiliado,
+       cie10.simbolo as diagnostico,
+       a.usuario_grabado,
+       a.fecha_grabado,
+       com.serial_fosyga,
+       a.afiliado llave_afiliado,
+       a.fecha_fin_vigencia as fecha_vencimiento,
+       a.fecha_nacimiento_afiliado,
+       cip.nit,
+       case when com.tipo_regimen = '1' then 'Régimen Contributivo' else 'Régimen Subsidiado' end as regimen,
+       case when af.sexo = '1' then 'Masculino' else 'Femenino' end as sexo,
+
+       cip.direccion as direccionIpsSolicitante,
+       case when cip.telefono is null then sol.telefono_institucional_telefono else cip.telefono end as telefonoIpsSolicitante,
+       concat (tmIpsSol.descripcion, '/', tm3.descripcion) as municipioIpsSolicitante,
+       cip.nit as nitIpsSolicitante,
+       cip.razon_social as razonIpsSolicitante,
+       concat(u.nombre,' ', u.apellido) as usuarioGNombres,
+       a.observacion
+from administrativo.ss_autorizacion a
+     left join administrativo.ct_ips ci on ci.ips = a.consecutivo_ips
+     left join administrativo.tb_municipio tm on tm.municipio = a.municipio_prestador
+     left join administrativo.tb_municipio tm2 on tm2.municipio = tm.departamento
+     left join administrativo.ss_solicitud sol on sol.consecutivo_solicitud = a.consecutivo_solicitud
+     left join administrativo.ct_ips cip on cip.ips = sol.ips_solicitante
+     left join administrativo.tb_cie10 cie10 on cie10.cie_10 = sol.diagnostico_principal
+     left join administrativo.ct_ips_sede s on a.consecutivo_sede = s.consecutivo_sede_ips
+     left join administrativo.tb_municipio tms on tms.municipio = s.municipio
+     left join administrativo.tb_municipio tm2s on tms.departamento = tm2s.municipio
+     inner join administrativo.af_afiliado_complemento com on com.afiliado = a.afiliado
+     inner join administrativo.af_afiliado af on af.afiliado = a.afiliado
+     left join administrativo.tb_municipio tmIpsSol on tmIpsSol.municipio = cip.municipio
+     left join administrativo.tb_municipio tm3 on tm3.municipio = tmIpsSol.departamento
+     left join administrativo.usuario u on u.usuario = a.usuario_grabado
+where a.consecutivo_autorizacion = $P!{CONSECUTIVO}]]>
+	</queryString>
+	<field name="codigoactivacion" class="java.lang.String"/>
+	<field name="numero_identificacion_afiliado" class="java.lang.String"/>
+	<field name="tipo_identificacion_afiliado" class="java.lang.String"/>
+	<field name="razon_social_prestador" class="java.lang.String"/>
+	<field name="nit_prestador" class="java.lang.String"/>
+	<field name="direccion" class="java.lang.String"/>
+	<field name="descripcion" class="java.lang.String"/>
+	<field name="municipio" class="java.lang.String"/>
+	<field name="telefono" class="java.lang.String"/>
+	<field name="call_center" class="java.lang.String"/>
+	<field name="afiliado" class="java.lang.String"/>
+	<field name="diagnostico" class="java.lang.String"/>
+	<field name="usuario_grabado" class="java.lang.String"/>
+	<field name="fecha_grabado" class="java.sql.Timestamp"/>
+	<field name="serial_fosyga" class="java.lang.String">
+		<fieldDescription><![CDATA[serial_fosyga]]></fieldDescription>
+	</field>
+	<field name="fecha_vencimiento" class="java.sql.Timestamp"/>
+	<field name="fecha_nacimiento_afiliado" class="java.sql.Timestamp"/>
+	<field name="nit" class="java.lang.String"/>
+	<field name="llave_afiliado" class="java.lang.String">
+		<fieldDescription><![CDATA[llave_afiliado]]></fieldDescription>
+	</field>
+	<field name="regimen" class="java.lang.String"/>
+	<field name="sexo" class="java.lang.String"/>
+	<field name="direccionIpsSolicitante" class="java.lang.String"/>
+	<field name="telefonoIpsSolicitante" class="java.lang.String"/>
+	<field name="municipioIpsSolicitante" class="java.lang.String"/>
+	<field name="nitIpsSolicitante" class="java.lang.String"/>
+	<field name="razonIpsSolicitante" class="java.lang.String"/>
+	<field name="usuarioGNombres" class="java.lang.String"/>
+	<field name="observacion" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="87">
+			<rectangle radius="10">
+				<reportElement positionType="Float" x="7" y="0" width="507" height="85" isRemoveLineWhenBlank="true" uuid="4eaddb73-3004-413a-9471-4dd905c6385a"/>
+			</rectangle>
+			<textField>
+				<reportElement positionType="Float" x="150" y="0" width="326" height="15" uuid="e3fb7360-df4a-42d8-8295-0e2e5ed29e0a"/>
+				<textElement textAlignment="Center" verticalAlignment="Top" markup="none">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{EMPRESA}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="150" y="16" width="326" height="15" uuid="51e37d20-374e-4583-a2aa-900a36f8fce5"/>
+				<textElement textAlignment="Center" verticalAlignment="Top" markup="none">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["DIRECCIONAMIENTO DE SERVICIOS DE SALUD"]]></textFieldExpression>
+			</textField>
+			<image onErrorType="Icon">
+				<reportElement positionType="Float" x="11" y="3" width="111" height="82" uuid="39ff81d5-bb97-4aa7-ad4e-f952a4f82216"/>
+				<imageExpression><![CDATA[$P{RUTA}+"logo.png"]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" stretchType="RelativeToTallestObject" x="105" y="38" width="263" height="19" uuid="f12e4899-ceee-4d24-a744-04f7f20c5df2"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="11" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["PIN. "+$F{codigoactivacion}+" - "+$F{regimen}]]></textFieldExpression>
+			</textField>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="275" y="59" width="92" height="15" uuid="8dad6f2b-0921-400e-aad0-9582d97083a3"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="11" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{fecha_grabado}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="119" y="59" width="155" height="15" isRemoveLineWhenBlank="true" uuid="16c9bf69-be2c-44b4-8a9a-df5539d21db6"/>
+				<textElement textAlignment="Right" verticalAlignment="Top">
+					<font size="11" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Fecha Direccionamiento ]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="368" y="42" width="130" height="15" uuid="3b09e8d2-4d5e-4210-b215-cddd42edeb4e"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="11" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Fecha Vencimiento]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="368" y="59" width="130" height="15" uuid="08410756-8041-4b46-8725-4b9ec39104d8"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="11" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{fecha_vencimiento}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="563" splitType="Stretch">
+			<rectangle radius="10">
+				<reportElement positionType="Float" x="7" y="401" width="507" height="49" isRemoveLineWhenBlank="true" uuid="ef894d02-1720-4c0d-a9d2-a45142cfb3cd"/>
+			</rectangle>
+			<elementGroup>
+				<rectangle>
+					<reportElement positionType="Float" x="0" y="198" width="522" height="16" uuid="c7259395-9bfa-4e24-93bd-f82290d458f4"/>
+				</rectangle>
+				<staticText>
+					<reportElement positionType="FixRelativeToBottom" x="0" y="198" width="522" height="17" forecolor="#1446B4" uuid="8611ab92-2aaa-4c44-a49a-d04366680581"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8"/>
+					</textElement>
+					<text><![CDATA[Sr IPS, el código de activación le permitirá habilitar el servicio y descargar la autorización directamente sin recurrir a la EPS.]]></text>
+				</staticText>
+				<staticText>
+					<reportElement positionType="Float" x="122" y="213" width="57" height="12" uuid="365fba12-70e6-46a8-bf6e-9f983aebc8f4"/>
+					<textElement verticalAlignment="Bottom">
+						<font size="6"/>
+					</textElement>
+					<text><![CDATA[Fecha Impresión:]]></text>
+				</staticText>
+				<textField pattern="yyyy/MM/dd HH:mm" isBlankWhenNull="true">
+					<reportElement positionType="Float" x="178" y="213" width="100" height="12" uuid="bda08314-15ca-4f00-985f-80ccb8c0397c"/>
+					<textElement verticalAlignment="Bottom">
+						<font size="6"/>
+					</textElement>
+					<textFieldExpression><![CDATA[new Date()]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement positionType="Float" x="0" y="213" width="26" height="12" uuid="26fdaf31-d8f5-48e3-bfc3-062a1dc1b3e0"/>
+					<textElement verticalAlignment="Bottom">
+						<font size="6"/>
+					</textElement>
+					<text><![CDATA[Usuario:]]></text>
+				</staticText>
+				<textField isBlankWhenNull="true">
+					<reportElement positionType="Float" x="26" y="213" width="77" height="12" uuid="03b19141-7e36-46e2-a68e-fdeea395a583"/>
+					<textElement verticalAlignment="Bottom">
+						<font size="6"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{usuario_grabado}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement positionType="Float" x="49" y="401" width="404" height="14" uuid="595594b2-3e1c-4103-a8b0-717d3e7fa1e6"/>
+					<textElement textAlignment="Center" verticalAlignment="Bottom">
+						<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[DIRECCIONAMIENTO SUJETO A PERTINENCIA MÉDICA]]></text>
+				</staticText>
+				<staticText>
+					<reportElement positionType="Float" x="11" y="415" width="500" height="35" uuid="83843e0a-4a37-41b6-8a6d-5e045602c2cb"/>
+					<textElement textAlignment="Justified" verticalAlignment="Top">
+						<font size="7" isBold="false" isItalic="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+						<paragraph lineSpacing="Single"/>
+					</textElement>
+					<text><![CDATA[SI CORRESPONDE A LA IPS EL RECAUDO DE CUOTAS MODERADORAS Y/O COPAGOS, FAVOR APLICAR LO ESTABLECIDO EN EL ACUERDO 260 DE 2004 Y DEMÁS NORMATIVIDAD DEL CASO. RECUERDE VALIDAR EN LÍNEA A TRAVÉS DE NUESTRA OFICINA VIRTUAL EL ESTADO DEL DIRECCIONAMIENTO AL MOMENTO DE LA PRESTACIÓN DEL SERVICIO Y LA OBLIGATORIEDAD DE FACTURAR LOS SERVICIOS COMO MÁXIMO 30 DÍAS DESPUÉS DE HABER SIDO PRESTADOS.]]></text>
+				</staticText>
+			</elementGroup>
+			<staticText>
+				<reportElement positionType="Float" x="300" y="213" width="53" height="12" uuid="55c73949-ede9-4cdd-88a3-e90941b77880"/>
+				<textElement verticalAlignment="Bottom">
+					<font size="6"/>
+				</textElement>
+				<text><![CDATA[Serial BDUA:]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="353" y="213" width="54" height="12" uuid="6d4565a4-1acb-4c81-a2cd-24a26a4799ef"/>
+				<textElement verticalAlignment="Bottom">
+					<font size="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{serial_fosyga}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="418" y="213" width="48" height="12" uuid="c5930fdd-d8ba-408b-b296-176f7533d1ad"/>
+				<textElement verticalAlignment="Bottom">
+					<font size="6"/>
+				</textElement>
+				<text><![CDATA[ID Interno :]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="466" y="213" width="39" height="12" uuid="aa22299f-c3f9-4daf-ac59-d5dc683b6540"/>
+				<textElement verticalAlignment="Bottom">
+					<font size="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{llave_afiliado}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="14" width="68" height="10" uuid="c32b22a7-abd0-4de2-b1a9-64bc9eca5ac2"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[IDENTIFICACIÓN: ]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="69" y="14" width="145" height="10" uuid="942ca836-4255-4dff-bf24-d661ed566070"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tipo_identificacion_afiliado} + "-" +$F{numero_identificacion_afiliado}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" mode="Opaque" x="0" y="2" width="522" height="12" backcolor="#BFDBBF" uuid="caf8ba37-1137-49c9-a36e-1ddb044f7767"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="9" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[INFORMACIÓN DEL AFILIADO]]></text>
+			</staticText>
+			<subreport>
+				<reportElement x="0" y="162" width="522" height="36" uuid="28b649a3-7353-49d4-bcd3-7b60a52fcff4"/>
+				<subreportParameter name="AUTORIZACION">
+					<subreportParameterExpression><![CDATA[$P{CONSECUTIVO}]]></subreportParameterExpression>
+				</subreportParameter>
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<subreportExpression><![CDATA[$P{SUBREPORT_DIR} + "ssActivacionServicios.jasper"]]></subreportExpression>
+			</subreport>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="24" width="82" height="10" uuid="2af06c92-1bc0-4208-8c15-fc2dd3994914"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[FECHA NACIMIENTO: ]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="83" y="24" width="131" height="10" uuid="97689b82-7726-4ea9-b749-2ce0b417757d"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{fecha_nacimiento_afiliado}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="61" y="34" width="153" height="10" uuid="7b9a4cbf-3c74-44e3-b8a0-6595f08505e9"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{diagnostico}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="34" width="60" height="10" uuid="c0e2e738-fff2-47e7-8226-008e44d9be32"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[DIAGNÓSTICO:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" mode="Opaque" x="0" y="50" width="522" height="13" backcolor="#BFDBBF" uuid="294c813a-584a-4a24-bd69-06b9eb30a79d"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="9" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[IPS SOLICITANTE]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="50" y="132" width="164" height="10" uuid="a9926cb6-7243-4458-b316-0515733f7e34"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{direccion}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" mode="Opaque" x="0" y="99" width="522" height="13" backcolor="#BFDBBF" uuid="afaef9fa-76c5-4e70-a2e0-4a90046b77bd"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="9" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[IPS AUTORIZADA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="122" width="49" height="10" uuid="a036c233-e584-452e-8d5c-b2aa3a54fb4f"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[MUNICIPIO: ]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement positionType="Float" mode="Transparent" x="49" y="122" width="165" height="10" forecolor="#000000" backcolor="#FFFFFF" uuid="90b38cd9-a3f0-4ee6-aa74-dede9b6edea1"/>
+				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None" markup="none">
+					<font fontName="SansSerif" size="7" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfEncoding="Cp1252" isPdfEmbedded="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{municipio}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="132" width="50" height="10" uuid="91e28f5b-180a-4f29-8d28-77b920e20057"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[DIRECCIÓN:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" mode="Opaque" x="0" y="149" width="522" height="13" backcolor="#BFDBBF" uuid="d34edba7-63e7-477d-a7c9-a45a8065ce08"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="9" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[SERVICIOS DIRECCIONADOS]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="112" width="407" height="10" uuid="29fd6f50-2657-4f83-a1c1-cfdefa1f4582"/>
+				<textElement>
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nit_prestador} + "-" + $F{razon_social_prestador}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="219" y="14" width="39" height="10" uuid="9bd54bff-da1b-421e-b5ee-dda1bb12c5ce"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[NOMBRE:]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="247" y="24" width="181" height="10" uuid="2c9deb98-d2c5-4b66-b993-bc050f7668a3"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{sexo}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="259" y="14" width="169" height="10" uuid="ed473ad7-b93a-411e-bfa0-09f81faedb2d"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{afiliado}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="219" y="24" width="28" height="10" uuid="bbcb3d83-ee69-4fc6-b190-0d52ad8a6938"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[SEXO:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="218" y="132" width="48" height="10" uuid="7e1a447a-7869-4832-9406-3940103c097b"/>
+				<textElement>
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[TELÉFONO:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="267" y="132" width="122" height="10" uuid="6346007a-c7f6-4fac-b814-43397af6c291"/>
+				<textElement>
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{telefono}]]></textFieldExpression>
+			</textField>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement positionType="Float" mode="Transparent" x="49" y="73" width="165" height="10" forecolor="#000000" backcolor="#FFFFFF" uuid="94bccf24-16ef-4c88-ba74-a53a9026bef1"/>
+				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None" markup="none">
+					<font fontName="SansSerif" size="7" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfEncoding="Cp1252" isPdfEmbedded="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{municipioIpsSolicitante}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="218" y="83" width="48" height="10" uuid="fafd7121-87e7-471b-9f84-7e8efc3ff903"/>
+				<textElement>
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[TELÉFONO:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="73" width="49" height="10" uuid="13c9dd3a-b985-4156-9cca-20c0d44cf575"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[MUNICIPIO: ]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="83" width="50" height="10" uuid="1f451430-60a0-4005-a8a1-a8dd2d3ec5b7"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[DIRECCIÓN:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="50" y="83" width="164" height="10" uuid="7a00d25f-a739-481b-aaec-adf19442a480"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{direccionIpsSolicitante}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="63" width="407" height="10" uuid="abe3d1ad-f9c0-44a7-9e98-8fabb71c3f2f"/>
+				<textElement>
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nitIpsSolicitante}+ "-" + $F{razonIpsSolicitante}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="267" y="83" width="122" height="10" uuid="110ae486-80a8-4a4e-9937-7e0e53a4d626"/>
+				<textElement>
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{telefonoIpsSolicitante}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" mode="Opaque" x="0" y="227" width="522" height="13" backcolor="#BFDBBF" uuid="819b7aff-0b74-4f68-8444-4ef6528f4606"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="9" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[OBSERVACIONES]]></text>
+			</staticText>
+			<elementGroup>
+				<rectangle radius="10">
+					<reportElement positionType="Float" x="7" y="451" width="507" height="80" isRemoveLineWhenBlank="true" uuid="f93b7dc9-9529-448f-a4ab-d6c9baaab790"/>
+				</rectangle>
+			</elementGroup>
+			<staticText>
+				<reportElement positionType="Float" x="19" y="461" width="114" height="15" uuid="dbf8908b-14e0-4715-b171-3a3ee494e9fb"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="12" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[DIRECCIONADOR]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="19" y="476" width="77" height="12" uuid="27fd1af9-b0f8-4a6d-9bef-2e87b7d13983"/>
+				<textElement verticalAlignment="Bottom">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{usuarioGNombres}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="338" y="489" width="114" height="15" uuid="332e5755-11ee-403c-97a3-5340ebb537fc"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="12" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[FIRMA AFILIADO]]></text>
+			</staticText>
+			<line>
+				<reportElement x="308" y="487" width="175" height="1" uuid="1d8c2aa4-5315-4964-bc5e-51f5f49473fd"/>
+			</line>
+			<staticText>
+				<reportElement positionType="Float" x="19" y="490" width="287" height="15" uuid="b6949feb-1b09-433b-ae2e-7279ecc1b8ea"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font size="9" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[TELÉFONO (608) 280-9090 EXT 134 IBAGUE-TOLIMA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="56" y="505" width="397" height="15" uuid="3b93088c-717a-455f-8dd8-c201115b6899"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="12" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[LÍNEA DE ATENCIÓN AL USUARIO 01-8000-186-754]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="4" y="241" width="507" height="61" uuid="15c8fb98-43ec-46f1-b4ba-45b910c43603"/>
+				<textElement verticalAlignment="Top">
+					<font size="7" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{observacion}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

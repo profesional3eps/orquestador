@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="reDeclaratoriaSaludGrupo" pageWidth="612" pageHeight="792" columnWidth="612" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="cc2f9a43-9040-42f7-9d35-dd06a66f1c83">
+	<property name="ireport.zoom" value="2.200000000000003"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="MANEJO_INTEGRAL" class="java.lang.String"/>
+	<parameter name="CODIGO_CUPS" class="java.lang.String"/>
+	<parameter name="CANTIDAD" class="java.lang.String"/>
+	<parameter name="DESCRIPCION" class="java.lang.String"/>
+	<parameter name="AUTORIZACION" class="java.lang.String"/>
+	<parameter name="ITEM" class="java.lang.String"/>
+	<parameter name="SR_COPAGO" class="java.lang.String"/>
+	<parameter name="APLICA" class="java.lang.String"/>
+	<parameter name="NO_APLICA" class="java.lang.String"/>
+	<parameter name="OBSERVACION" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[SELECT ROW_NUMBER() OVER(ORDER BY CONSECUTIVO_AUTORIZACION DESC) AS CONSECUTIVO_AUTORIZACION, T1.*
+FROM (
+SELECT AUC.CONSECUTIVO_AUTORIZACION, AC.VALOR_COPAGO, AC.VALOR_AUTORIZA, S.MANEJO_INTEGRAL, TC.CODIGO_INTERNO AS CODIGO, AC.DESCRIPCION_CODIGO_PROPIO AS DESCRIPCION, AC.CANTIDAD AS CANTIDAD, AC.OBSERVACION_AUTORIZACION AS OBSERVACION, AC.DESCRIPCION_CODIGO_PAQUETE AS PAQUETE
+  FROM administrativo.ss_autorizacion AUC
+  LEFT JOIN administrativo.ss_solicitud S
+  ON AUC.CONSECUTIVO_SOLICITUD=S.CONSECUTIVO_SOLICITUD
+  LEFT JOIN administrativo.ss_autorizacion_cup AC
+  ON AUC.CONSECUTIVO_AUTORIZACION=AC.CONSECUTIVO_AUTORIZACION
+  LEFT JOIN administrativo.tb_cup TC
+  ON AC.CUP=TC.CUP
+  WHERE AUC.CONSECUTIVO_AUTORIZACION=$P!{AUTORIZACION}
+  UNION ALL
+  SELECT AUI.CONSECUTIVO_AUTORIZACION, AI.VALOR_COPAGO, AI.VALOR_AUTORIZA, S.MANEJO_INTEGRAL, TI.CODIGO_INTERNO AS CODIGO, AI.DESCRIPCION_CODIGO_PROPIO AS DESCRIPCION, AI.CANTIDAD AS CANTIDAD, AI.OBSERVACION_AUTORIZACION AS OBSERVACION, AI.DESCRIPCION_CODIGO_PAQUETE AS PAQUETE
+  FROM administrativo.ss_autorizacion AUI
+  LEFT JOIN administrativo.ss_solicitud S
+  ON AUI.CONSECUTIVO_SOLICITUD=S.CONSECUTIVO_SOLICITUD
+  LEFT JOIN administrativo.ss_autorizacion_insumo AI
+  ON AUI.CONSECUTIVO_AUTORIZACION=AI.CONSECUTIVO_AUTORIZACION
+  LEFT JOIN administrativo.tb_insumo TI
+  ON AI.INSUMO=TI.INSUMO
+  WHERE AUI.CONSECUTIVO_AUTORIZACION=$P!{AUTORIZACION}
+  UNION ALL
+  SELECT AUM.CONSECUTIVO_AUTORIZACION, AM.VALOR_COPAGO, AM.VALOR_AUTORIZA, S.MANEJO_INTEGRAL, TM.CODIGO_INTERNO AS CODIGO, AM.DESCRIPCION_CODIGO_PROPIO AS DESCRIPCION, AM.CANTIDAD AS CANTIDAD, AM.OBSERVACION_AUTORIZACION AS OBSERVACION, AM.DESCRIPCION_CODIGO_PAQUETE AS PAQUETE
+  FROM administrativo.ss_autorizacion AUM
+  LEFT JOIN administrativo.ss_solicitud S
+  ON AUM.CONSECUTIVO_SOLICITUD=S.CONSECUTIVO_SOLICITUD
+  LEFT JOIN administrativo.ss_autorizacion_medicamento AM
+  ON AUM.CONSECUTIVO_AUTORIZACION=AM.CONSECUTIVO_AUTORIZACION
+  LEFT JOIN administrativo.tb_medicamento TM
+  ON AM.MEDICAMENTO=TM.MEDICAMENTO
+  WHERE AUM.CONSECUTIVO_AUTORIZACION=$P!{AUTORIZACION}
+) t1
+where t1.CODIGO is not null]]>
+	</queryString>
+	<field name="consecutivo_autorizacion" class="java.lang.Long"/>
+	<field name="valor_copago" class="java.math.BigDecimal"/>
+	<field name="valor_autoriza" class="java.math.BigDecimal"/>
+	<field name="manejo_integral" class="java.lang.String"/>
+	<field name="codigo" class="java.lang.String"/>
+	<field name="descripcion" class="java.lang.String"/>
+	<field name="cantidad" class="java.math.BigDecimal"/>
+	<field name="observacion" class="java.lang.String"/>
+	<field name="paquete" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<columnHeader>
+		<band height="10" splitType="Stretch">
+			<textField pattern="" isBlankWhenNull="false">
+				<reportElement mode="Opaque" x="25" y="0" width="60" height="10" forecolor="#010101" backcolor="#E5FEE5" uuid="9eac3566-072f-487a-9d60-6fd2057473aa"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="None" markup="none">
+					<font fontName="SansSerif" size="7" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica-Bold" pdfEncoding="Cp1252" isPdfEmbedded="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{CODIGO_CUPS}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="false">
+				<reportElement mode="Opaque" x="85" y="0" width="56" height="10" forecolor="#010101" backcolor="#E5FEE5" uuid="0c28304c-a806-4e5b-a5a7-811e391e10b2"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="None" markup="none">
+					<font fontName="SansSerif" size="7" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica-Bold" pdfEncoding="Cp1252" isPdfEmbedded="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{CANTIDAD}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="false">
+				<reportElement mode="Opaque" x="141" y="0" width="210" height="10" forecolor="#010101" backcolor="#E5FEE5" uuid="69dac666-8f2b-489c-a0f9-9c2b0afded15"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="None" markup="none">
+					<font fontName="SansSerif" size="7" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica-Bold" pdfEncoding="Cp1252" isPdfEmbedded="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{DESCRIPCION}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="false">
+				<reportElement mode="Opaque" x="0" y="0" width="25" height="10" forecolor="#010101" backcolor="#E5FEE5" uuid="cb3977d7-7397-498b-88bf-f91ac2bf964b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="None" markup="none">
+					<font fontName="SansSerif" size="7" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica-Bold" pdfEncoding="Cp1252" isPdfEmbedded="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{ITEM}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="false">
+				<reportElement mode="Opaque" x="351" y="0" width="221" height="10" forecolor="#010101" backcolor="#E5FEE5" uuid="7b041e16-1e73-4a07-9dad-aa6f467c4e40"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="None" markup="none">
+					<font fontName="SansSerif" size="7" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica-Bold" pdfEncoding="Cp1252" isPdfEmbedded="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{OBSERVACION}]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="11" splitType="Stretch">
+			<elementGroup>
+				<textField isBlankWhenNull="true">
+					<reportElement positionType="Float" stretchType="RelativeToTallestObject" x="0" y="0" width="25" height="10" isRemoveLineWhenBlank="true" uuid="4848e13d-5abf-4ef8-be14-bc806d314e84">
+						<printWhenExpression><![CDATA[$F{codigo}!=null]]></printWhenExpression>
+					</reportElement>
+					<box leftPadding="5" rightPadding="5">
+						<topPen lineWidth="0.25"/>
+						<leftPen lineWidth="0.25"/>
+						<bottomPen lineWidth="0.25"/>
+						<rightPen lineWidth="0.25"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{consecutivo_autorizacion}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement positionType="Float" stretchType="RelativeToTallestObject" x="25" y="0" width="60" height="10" isRemoveLineWhenBlank="true" forecolor="#010101" uuid="355ff825-b781-4eb2-bce5-8b8d42eed49d">
+						<printWhenExpression><![CDATA[$F{codigo}!=null]]></printWhenExpression>
+					</reportElement>
+					<box leftPadding="5" rightPadding="5">
+						<topPen lineWidth="0.25"/>
+						<leftPen lineWidth="0.25"/>
+						<bottomPen lineWidth="0.25"/>
+						<rightPen lineWidth="0.25"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{codigo}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0" isBlankWhenNull="true">
+					<reportElement positionType="Float" stretchType="RelativeToTallestObject" x="85" y="0" width="56" height="10" isRemoveLineWhenBlank="true" forecolor="#010101" uuid="342467ef-bbe1-46b2-9813-142ed0acf169">
+						<printWhenExpression><![CDATA[$F{codigo}!=null]]></printWhenExpression>
+					</reportElement>
+					<box leftPadding="5" rightPadding="5">
+						<topPen lineWidth="0.25"/>
+						<leftPen lineWidth="0.25"/>
+						<bottomPen lineWidth="0.25"/>
+						<rightPen lineWidth="0.25"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{cantidad}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+					<reportElement positionType="Float" stretchType="RelativeToTallestObject" x="141" y="0" width="210" height="10" isRemoveLineWhenBlank="true" forecolor="#010101" uuid="08a7fd93-ec97-43a6-b835-6def2a7bfe0e">
+						<printWhenExpression><![CDATA[$F{codigo}!=null]]></printWhenExpression>
+					</reportElement>
+					<box leftPadding="5" rightPadding="5">
+						<topPen lineWidth="0.25"/>
+						<leftPen lineWidth="0.25"/>
+						<bottomPen lineWidth="0.25"/>
+						<rightPen lineWidth="0.25"/>
+					</box>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="7" isStrikeThrough="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{descripcion}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true" isBlankWhenNull="false">
+					<reportElement positionType="Float" stretchType="RelativeToTallestObject" x="351" y="0" width="221" height="10" forecolor="#010101" uuid="91ae75b7-c0f3-4d53-86a2-b4a598adf9e9"/>
+					<box leftPadding="5" rightPadding="5">
+						<topPen lineWidth="0.25"/>
+						<leftPen lineWidth="0.25"/>
+						<bottomPen lineWidth="0.25"/>
+						<rightPen lineWidth="0.25"/>
+					</box>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="7" isStrikeThrough="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{observacion}==null ? "" : $F{observacion}]]></textFieldExpression>
+				</textField>
+			</elementGroup>
+			<elementGroup>
+				<rectangle>
+					<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Transparent" x="0" y="10" width="572" height="1" isPrintWhenDetailOverflows="true" uuid="5a3be3c3-1a7a-433f-bb0d-2197f062a106"/>
+				</rectangle>
+				<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+					<reportElement positionType="Float" x="0" y="10" width="572" height="0" isRemoveLineWhenBlank="true" forecolor="#010101" uuid="994b696d-613a-488d-9589-2701e12d2e32">
+						<printWhenExpression><![CDATA[$F{codigo}!=null]]></printWhenExpression>
+					</reportElement>
+					<box leftPadding="5" rightPadding="5">
+						<topPen lineWidth="0.25"/>
+						<leftPen lineWidth="0.25"/>
+						<bottomPen lineWidth="0.25"/>
+						<rightPen lineWidth="0.25"/>
+					</box>
+					<textElement textAlignment="Justified" verticalAlignment="Middle" markup="html">
+						<font size="6" isStrikeThrough="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{paquete}.replaceAll( "<br />", ", " )]]></textFieldExpression>
+				</textField>
+			</elementGroup>
+		</band>
+	</detail>
+</jasperReport>

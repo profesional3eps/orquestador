@@ -1,0 +1,663 @@
+{
+  "info": {
+    "_postman_id": "e9057767-9b13-4053-916c-c3550272d905",
+    "name": "EPS Familiar de Colombia API - GHG",
+    "description": "API EPS Familiar de Colombia (ORQUESTADORDB).\n\n**Inicio:** Auth → Emitir token JWT → carpeta *Documentación* → Importar OpenAPI en Postman (opcional). Medicamentos: `orq.usuarios.autoriza_med = 1`.\n\n**Tipos alineados a BD (Swagger `/docs`):** `fecha_solicitud_*`, `fecha_programacion`, `fecha_prestacion` → `date` (ISO `YYYY-MM-DD`); `prioridad_atencion`, `consecutivo_sede_ips`, `consecutivo_solicitud` → `integer`. Campos opcionales vacíos van **disabled**.\n\n**Orden médica IPS (2 pasos):**\n1. `POST /afiliados/autorizacion-orden-medica-ips` — solo solicitud (`estado_trazabilidad: SOLICITUD`). Copiar `consecutivo_solicitud`.\n2. `POST /afiliados/autorizacion-orden-medica-ips/activar` — emite autorización, activa, confirma, contabiliza (preferencias 288/390), trazabilidad auditoría Messiah. Devuelve `pin_activacion`, `consecutivo_saldo` (si aplica), PDF prestado (base64).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "38463286"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Emitir token JWT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.access_token) {",
+                  "    pm.collectionVariables.set('access_token', data.access_token);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"ghg_medic\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Autenticación con usuario y contraseña. Devuelve `access_token` y `expires_in`."
+          },
+          "response": []
+        },
+        {
+          "name": "Perfil y permisos (módulos / acciones)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Perfil del usuario autenticado, permisos por módulo y acciones permitidas."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Documentación",
+      "item": [
+        {
+          "name": "OpenAPI JSON (importar en Postman)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/openapi.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "openapi.json"
+              ]
+            },
+            "description": "Esquema OpenAPI 3. Fechas con `format: date`, enteros con `type: integer`. En Postman: Import → Link → `{{baseUrl}}/openapi.json` (con la API en ejecución). Los endpoints multipart siguen siendo Text/File en la colección manual."
+          },
+          "response": []
+        }
+      ],
+      "description": "OpenAPI para sincronizar tipos (date, integer) con Postman: Import → Link → pegar URL."
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Comprobar disponibilidad",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Indicador de disponibilidad (`{\"status\": \"ok\"}`). Requiere token Bearer válido."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Procesos Afiliado",
+      "item": [
+        {
+          "name": "Consulta de afiliado por documento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo_identificacion\": \"CC\",\n  \"numero_identificacion\": \"1234567890\",\n  \"nit_ips\": \"900123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/consultas/afiliado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas",
+                "afiliado"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Procesos IPS",
+      "item": [
+        {
+          "name": "Registrar solicitud de autorización IPS (orden médica)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const hoy = new Date().toISOString().slice(0, 10);",
+                  "const target = pm.environment.name ? pm.environment : pm.collectionVariables;",
+                  "target.set('fecha_solicitud_proceso', hoy);",
+                  "target.set('fecha_solicitud_medico', hoy);",
+                  "if (!target.get('prioridad_atencion')) { target.set('prioridad_atencion', '1'); }"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  const target = pm.environment.name ? pm.environment : pm.collectionVariables;",
+                  "  if (data.consecutivo_solicitud) {",
+                  "    target.set('consecutivo_solicitud', String(data.consecutivo_solicitud));",
+                  "  }",
+                  "  pm.test('tipo_resultado', () => pm.expect(data.tipo_resultado).to.be.oneOf(['TOTAL', 'PARCIAL']));",
+                  "  if (data.medicamentos_solicitados && data.medicamentos_solicitados.length) {",
+                  "    pm.test('observacion en medicamento', () => {",
+                  "      const m = data.medicamentos_solicitados[0];",
+                  "      pm.expect(m).to.have.property('observacion');",
+                  "    });",
+                  "  }",
+                  "  if (data.pin_activacion) {",
+                  "    target.set('pin_activacion', data.pin_activacion);",
+                  "  }",
+                  "  if (data.estado_trazabilidad) {",
+                  "    pm.test('estado trazabilidad solicitud', () => pm.expect(data.estado_trazabilidad).to.eql('SOLICITUD'));",
+                  "  }",
+                  "  if (data.pendiente_activacion !== undefined) {",
+                  "    pm.test('sin autorizacion emitida', () => pm.expect(data.pendiente_activacion).to.eql(false));",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NzdiOTdkZi1jZDMwLTU1NTktODY1OC1mYTEzZTNiN2VlN2IiLCJ1bmlxdWVfbmFtZSI6ImdoZ19tZWRpYyIsImVtYWlsIjoiIiwianRpIjoiMzIzYTg3NzYtN2UzMy00MjE2LWJjZTUtZGI5OTM1NTVkZDJlIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZWlkZW50aWZpZXIiOiI3NzdiOTdkZi1jZDMwLTU1NTktODY1OC1mYTEzZTNiN2VlN2IiLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiZ2hnX21lZGljIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoiIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvc3VybmFtZSI6IiIsIlByaW1lck5vbWJyZSI6IiIsIlNlZ3VuZG9Ob21icmUiOiIiLCJQcmltZXJBcGVsbGlkbyI6IiIsIlNlZ3VuZG9BcGVsbGlkbyI6IiIsIlRpcG9Eb2N1bWVudG8iOiIiLCJOdW1lcm9Eb2N1bWVudG8iOiIiLCJQaG9uZU51bWJlciI6IiIsIlR3b0ZhY3RvckVuYWJsZWQiOiJGYWxzZSIsIlRpcG9FbnRpZGFkIjoiRkFSTUFDSUEiLCJOb21icmVFbnRpZGFkIjoiR0xPQkFMIEhFQUxUSCBHUk9VUCBTLkEuUyIsIk5pdEVudGlkYWQiOiI5MDE0ODMxNjgiLCJpYXQiOjE3ODE3MzEzODYsIm5iZiI6MTc4MTczMTM4NiwiZXhwIjoxNzgxNzMzMTg2LCJpc3MiOiJFUFMuRmFtaWxpYXIuT3JxdWVzdGFkb3IiLCJhdWQiOiJFUFMuRmFtaWxpYXIuT3JxdWVzdGFkb3IuVXN1YXJpb3MiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOlsiVVNVQVJJT19BUEkiXX0.fIfD_t-JC931wGa6X9naIVI_8O1F_4Kxyr_XLAoV-rs",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "tipo_identificacion",
+                  "value": "RC",
+                  "type": "text",
+                  "description": "CC, TI, CE, etc."
+                },
+                {
+                  "key": "numero_identificacion",
+                  "value": "1124433874",
+                  "type": "text"
+                },
+                {
+                  "key": "observacion",
+                  "value": "observacion_solicitud",
+                  "type": "text",
+                  "description": "Obligatorio (texto de la solicitud)."
+                },
+                {
+                  "key": "email",
+                  "value": "",
+                  "type": "text",
+                  "description": "Opcional; sede → afiliado → IPS.",
+                  "disabled": true
+                },
+                {
+                  "key": "telefono",
+                  "value": "6051234567",
+                  "type": "text",
+                  "description": "Obligatorio. Formato 9999999999."
+                },
+                {
+                  "key": "celular",
+                  "value": "3001234567",
+                  "type": "text",
+                  "description": "Obligatorio. Formato 9999999999."
+                },
+                {
+                  "key": "prioridad_atencion",
+                  "value": "1",
+                  "type": "text",
+                  "description": "integer (smallint) — default 1. Solo dígitos."
+                },
+                {
+                  "key": "justificacion_clinica",
+                  "value": "",
+                  "type": "text",
+                  "description": "Opcional.",
+                  "disabled": true
+                },
+                {
+                  "key": "diagnostico_principal",
+                  "value": "H571",
+                  "type": "text",
+                  "description": "CIE-10 obligatorio (tb_cie10)."
+                },
+                {
+                  "key": "diagnostico_relacionado_1",
+                  "value": "{{diagnostico_relacionado_1}}",
+                  "type": "text",
+                  "description": "CIE-10 opcional.",
+                  "disabled": true
+                },
+                {
+                  "key": "diagnostico_relacionado_2",
+                  "value": "{{diagnostico_relacionado_2}}",
+                  "type": "text",
+                  "description": "CIE-10 opcional.",
+                  "disabled": true
+                },
+                {
+                  "key": "nit_ips_prestador",
+                  "value": "33173303",
+                  "type": "text",
+                  "description": "NIT prestador solicitante (CT_IPS)."
+                },
+                {
+                  "key": "nit_ips_direccionamiento",
+                  "value": "901483168",
+                  "type": "text",
+                  "description": "NIT donde se autoriza; CUM en tarifario del municipio del afiliado."
+                },
+                {
+                  "key": "consecutivo_sede_ips",
+                  "value": "{{consecutivo_sede_ips}}",
+                  "type": "text",
+                  "description": "integer — ct_ips_sede.consecutivo_sede_ips. Disabled = primera sede.",
+                  "disabled": true
+                },
+                {
+                  "key": "telefono_institucional_extension",
+                  "value": "",
+                  "type": "text",
+                  "description": "Opcional.",
+                  "disabled": true
+                },
+                {
+                  "key": "prestador_solicitante",
+                  "value": "",
+                  "type": "text",
+                  "description": "Opcional si envía nit_ips_prestador.",
+                  "disabled": true
+                },
+                {
+                  "key": "municipio_prestador",
+                  "value": "",
+                  "type": "text",
+                  "description": "Opcional; autocompleta desde sede/IPS.",
+                  "disabled": true
+                },
+                {
+                  "key": "fecha_solicitud_proceso",
+                  "value": "2026-06-17",
+                  "type": "text",
+                  "description": "date — ss_solicitud.fecha_solicitud_proceso. YYYY-MM-DD, ≤ hoy."
+                },
+                {
+                  "key": "fecha_solicitud_medico",
+                  "value": "2026-06-12",
+                  "type": "text",
+                  "description": "date — ss_solicitud.fecha_solicitud_medico. YYYY-MM-DD, ≤ hoy."
+                },
+                {
+                  "key": "registro_profesional",
+                  "value": "893604",
+                  "type": "text",
+                  "description": "Obligatorio. Autocompleta nombre, cargo, especialidad, tipo/número ID (tb_medico_solicitante)."
+                },
+                {
+                  "key": "medicamentos_json",
+                  "value": "[{\"cum\":\"19984678-1\",\"cantidad\":30,\"dias\":30,\"observacion\":\"Uso segun orden medica\"},{\"cum\":\"20061025-7\",\"cantidad\":30,\"dias\":30,\"observacion\":\"Uso segun orden medica\"}]",
+                  "type": "text",
+                  "description": "Por ítem: cum (obligatorio), cantidad, dias, observacion. Posología desde tb_medicamento. No repetir CUM. Segundo ítem de prueba no autorizado: agregue {\"cum\":\"99999-X\",...}."
+                },
+                {
+                  "key": "soporte_orden_medica",
+                  "type": "file",
+                  "description": "PDF obligatorio. Máx. ORDEN_MEDICA_SOPORTE_MAX_MB (default 5).",
+                  "src": "/C:/1._GESTION_DE_IMPLEMENTACION_DE_TECNOLOGIAS/1._GestiónTIC/ORQUESTADORDB/Manual_Flujos_Endpoints_API_v1.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/afiliados/autorizacion-orden-medica-ips",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "afiliados",
+                "autorizacion-orden-medica-ips"
+              ]
+            },
+            "description": "Paso 1 — POST /afiliados/autorizacion-orden-medica-ips.\n\nEvalúa medicamentos antes de persistir. Si **ninguno** cumple validaciones responde **400** sin crear solicitud. Si **al menos uno** autoriza: crea solicitud (TOTAL o PARCIAL) **sin** ss_autorizacion. Ejecute después *Activar y confirmar autorización IPS* con `consecutivo_solicitud`.\n\n**Prerequest:** fechas al día actual. PDF obligatorio en soporte_orden_medica."
+          },
+          "response": []
+        },
+        {
+          "name": "Activar y confirmar autorización IPS (orden médica)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const hoy = new Date().toISOString().slice(0, 10);",
+                  "const target = pm.environment.name ? pm.environment : pm.collectionVariables;",
+                  "target.set('fecha_programacion', hoy);",
+                  "target.set('fecha_prestacion', hoy);",
+                  "if (!target.get('confirmar_prestacion')) { target.set('confirmar_prestacion', 'true'); }"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.test('autorizacion activa', () => pm.expect(data.autorizacion_activa).to.eql(true));",
+                  "  const confirmar = (pm.variables.get('confirmar_prestacion') || 'true').toLowerCase() !== 'false';",
+                  "  if (confirmar) {",
+                  "    pm.test('prestacion confirmada', () => pm.expect(data.prestacion_confirmada).to.eql(true));",
+                  "    pm.test('estado trazabilidad', () => pm.expect(data.estado_trazabilidad).to.eql('COMPLETADA'));",
+                  "  } else {",
+                  "    pm.test('estado trazabilidad', () => pm.expect(data.estado_trazabilidad).to.eql('ACTIVADA'));",
+                  "  }",
+                  "  if (data.pin_activacion) {",
+                  "    const target = pm.environment.name ? pm.environment : pm.collectionVariables;",
+                  "    target.set('pin_activacion', data.pin_activacion);",
+                  "  }",
+                  "  if (data.consecutivo_autorizacion) {",
+                  "    const target = pm.environment.name ? pm.environment : pm.collectionVariables;",
+                  "    target.set('consecutivo_autorizacion', String(data.consecutivo_autorizacion));",
+                  "  }",
+                  "  if (data.consecutivo_saldo) {",
+                  "    const target = pm.environment.name ? pm.environment : pm.collectionVariables;",
+                  "    target.set('consecutivo_saldo', String(data.consecutivo_saldo));",
+                  "  }",
+                  "  if (data.autorizacion_emitida !== undefined) {",
+                  "    pm.test('autorizacion emitida en paso 2', () => pm.expect(data.autorizacion_emitida).to.eql(true));",
+                  "  }",
+                  "  if (data.pdf_generado) {",
+                  "    pm.test('pdf base64', () => pm.expect(data.autorizacion_pdf_base64).to.be.a('string').and.not.empty);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NzdiOTdkZi1jZDMwLTU1NTktODY1OC1mYTEzZTNiN2VlN2IiLCJ1bmlxdWVfbmFtZSI6ImdoZ19tZWRpYyIsImVtYWlsIjoiIiwianRpIjoiMzIzYTg3NzYtN2UzMy00MjE2LWJjZTUtZGI5OTM1NTVkZDJlIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZWlkZW50aWZpZXIiOiI3NzdiOTdkZi1jZDMwLTU1NTktODY1OC1mYTEzZTNiN2VlN2IiLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiZ2hnX21lZGljIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoiIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvc3VybmFtZSI6IiIsIlByaW1lck5vbWJyZSI6IiIsIlNlZ3VuZG9Ob21icmUiOiIiLCJQcmltZXJBcGVsbGlkbyI6IiIsIlNlZ3VuZG9BcGVsbGlkbyI6IiIsIlRpcG9Eb2N1bWVudG8iOiIiLCJOdW1lcm9Eb2N1bWVudG8iOiIiLCJQaG9uZU51bWJlciI6IiIsIlR3b0ZhY3RvckVuYWJsZWQiOiJGYWxzZSIsIlRpcG9FbnRpZGFkIjoiRkFSTUFDSUEiLCJOb21icmVFbnRpZGFkIjoiR0xPQkFMIEhFQUxUSCBHUk9VUCBTLkEuUyIsIk5pdEVudGlkYWQiOiI5MDE0ODMxNjgiLCJpYXQiOjE3ODE3MzEzODYsIm5iZiI6MTc4MTczMTM4NiwiZXhwIjoxNzgxNzMzMTg2LCJpc3MiOiJFUFMuRmFtaWxpYXIuT3JxdWVzdGFkb3IiLCJhdWQiOiJFUFMuRmFtaWxpYXIuT3JxdWVzdGFkb3IuVXN1YXJpb3MiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOlsiVVNVQVJJT19BUEkiXX0.fIfD_t-JC931wGa6X9naIVI_8O1F_4Kxyr_XLAoV-rs",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "tipo_identificacion",
+                  "value": "RC",
+                  "type": "text"
+                },
+                {
+                  "key": "numero_identificacion",
+                  "value": "1124433874",
+                  "type": "text"
+                },
+                {
+                  "key": "consecutivo_solicitud",
+                  "value": "2761555",
+                  "type": "text",
+                  "description": "integer — ss_solicitud del paso 1. Obligatorio salvo reintento con pin_activacion."
+                },
+                {
+                  "key": "pin_activacion",
+                  "value": "{{pin_activacion}}",
+                  "type": "text",
+                  "description": "Opcional. PIN devuelto en esta respuesta si ya emitió autorización.",
+                  "disabled": true
+                },
+                {
+                  "key": "nit_ips_direccionamiento",
+                  "value": "901483168",
+                  "type": "text",
+                  "description": "Mismo NIT del paso 1."
+                },
+                {
+                  "key": "fecha_programacion",
+                  "value": "2026-06-17",
+                  "type": "text",
+                  "description": "date — ss_autorizacion_medicamento.fecha_programacion. YYYY-MM-DD. Prerequest asigna hoy."
+                },
+                {
+                  "key": "fecha_prestacion",
+                  "value": "2026-06-17",
+                  "type": "text",
+                  "description": "date — ss_autorizacion.fecha_real_prestacion_servicio. YYYY-MM-DD. Prerequest asigna hoy."
+                },
+                {
+                  "key": "confirmar_prestacion",
+                  "value": "true",
+                  "type": "text",
+                  "description": "boolean — default true. Si false, solo activa (ACTIVADA) sin confirmar prestación."
+                },
+                {
+                  "key": "soporte_confirmacion",
+                  "type": "file",
+                  "description": "PDF opcional. Repositorio Messiah sie_descargas/autorizacion_confirmada/.",
+                  "src": "/C:/1._GESTION_DE_IMPLEMENTACION_DE_TECNOLOGIAS/1._GestiónTIC/ORQUESTADORDB/Manual_Flujos_Endpoints_API_v1.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/afiliados/autorizacion-orden-medica-ips/activar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "afiliados",
+                "autorizacion-orden-medica-ips",
+                "activar"
+              ]
+            },
+            "description": "Paso 2 — POST /afiliados/autorizacion-orden-medica-ips/activar.\n\nEmite ss_autorizacion, activa (ACTIVADA), confirma prestación (COMPLETADA) por defecto, contabiliza si tb_preferencia 288 o 390 está activa, y devuelve PDF prestado en autorizacion_pdf_base64.\n\nRequiere `consecutivo_solicitud` del paso 1 (o `pin_activacion` en reintentos). Mismo documento y nit_ips_direccionamiento.\n\nIdempotente si ya estaba activada o confirmada. Soporte confirmación opcional (habilite campo file)."
+          },
+          "response": []
+        }
+      ],
+      "description": "Agendamiento, historia clínica y autorización IPS por orden médica (solicitud + activación). Medicamentos: requiere `autoriza_med`."
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "username",
+      "value": "admin"
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "id_agendamiento",
+      "value": "1"
+    },
+    {
+      "key": "tipo_identificacion",
+      "value": "CC"
+    },
+    {
+      "key": "numero_identificacion",
+      "value": "3999852"
+    },
+    {
+      "key": "prioridad_atencion",
+      "value": "1"
+    },
+    {
+      "key": "consecutivo_ips",
+      "value": ""
+    },
+    {
+      "key": "nit_ips_prestador",
+      "value": "901483168"
+    },
+    {
+      "key": "nit_ips_direccionamiento",
+      "value": "901483168"
+    },
+    {
+      "key": "pin_activacion",
+      "value": ""
+    },
+    {
+      "key": "fecha_programacion",
+      "value": ""
+    },
+    {
+      "key": "fecha_prestacion",
+      "value": ""
+    },
+    {
+      "key": "confirmar_prestacion",
+      "value": "true"
+    },
+    {
+      "key": "consecutivo_sede_ips",
+      "value": ""
+    },
+    {
+      "key": "diagnostico_principal",
+      "value": "102593"
+    },
+    {
+      "key": "diagnostico_relacionado_1",
+      "value": ""
+    },
+    {
+      "key": "diagnostico_relacionado_2",
+      "value": ""
+    },
+    {
+      "key": "registro_profesional",
+      "value": "893604"
+    },
+    {
+      "key": "fecha_solicitud_proceso",
+      "value": ""
+    },
+    {
+      "key": "fecha_solicitud_medico",
+      "value": ""
+    },
+    {
+      "key": "telefono_contacto",
+      "value": "6051234567"
+    },
+    {
+      "key": "celular_contacto",
+      "value": "3001234567"
+    },
+    {
+      "key": "observacion_solicitud",
+      "value": "Solicitud medicamentos orden médica ambulatoria"
+    },
+    {
+      "key": "consecutivo_solicitud",
+      "value": ""
+    },
+    {
+      "key": "consecutivo_autorizacion",
+      "value": ""
+    },
+    {
+      "key": "consecutivo_saldo",
+      "value": ""
+    }
+  ]
+}

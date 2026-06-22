@@ -1,0 +1,13 @@
+{
+  "archivo": "C:\\1._GESTION_DE_IMPLEMENTACION_DE_TECNOLOGIAS\\1._GestiónTIC\\ORQUESTADORDB\\export\\siifa_con_seguimiento.csv",
+  "ultima_pagina_ok": 4,
+  "filas_exportadas": 2000,
+  "filas_unicas": 2000,
+  "nit_adquiriente": "901543761",
+  "filtro_siifa": "TieneRadicado=true",
+  "registros_por_pagina": 500,
+  "total_paginas_siifa": 236,
+  "total_registros_siifa": 117821,
+  "duplicados_omitidos_api": 0,
+  "duplicados_omitidos_escritura": 0
+}

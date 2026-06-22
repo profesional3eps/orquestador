@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  orquestadordb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orquestadordb
+    env_file:
+      - .env
+    environment:
+      JASPERSTARTER_PATH: /app/tools/jasperstarter/bin/jasperstarter
+      MESSIAH_PDF_ENABLED: "true"
+      JAVA_HOME: /opt/java8
+      PATH: /opt/java8/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    ports:
+      - "8000:8000"
+    restart: always

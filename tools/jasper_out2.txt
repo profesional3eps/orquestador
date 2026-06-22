@@ -1,0 +1,10 @@
+jun 17, 2026 3:00:49 PM org.springframework.beans.factory.xml.XmlBeanDefinitionReader loadBeanDefinitions
+INFORMACIÓN: Loading XML bean definitions from URL [jar:file:/C:/1._GESTION_DE_IMPLEMENTACION_DE_TECNOLOGIAS/1._Gesti%c3%b3nTIC/ORQUESTADORDB/tools/jasperstarter/lib/jasperreports-chart-themes-6.18.1.jar!/net/sf/jasperreports/chartthemes/spring/beans/chartThemesBeans.xml]
+jun 17, 2026 3:00:49 PM org.springframework.beans.factory.xml.XmlBeanDefinitionReader loadBeanDefinitions
+INFORMACIÓN: Loading XML bean definitions from URL [jar:file:/C:/1._GESTION_DE_IMPLEMENTACION_DE_TECNOLOGIAS/1._Gesti%c3%b3nTIC/ORQUESTADORDB/tools/jasperstarter/lib/jasperreports-chart-themes-6.18.1.jar!/net/sf/jasperreports/chartthemes/spring/beans/chartConstantsBean.xml]
+jun 17, 2026 3:00:49 PM org.springframework.beans.factory.xml.XmlBeanDefinitionReader loadBeanDefinitions
+INFORMACIÓN: Loading XML bean definitions from URL [jar:file:/C:/1._GESTION_DE_IMPLEMENTACION_DE_TECNOLOGIAS/1._Gesti%c3%b3nTIC/ORQUESTADORDB/tools/jasperstarter/lib/jasperreports-chart-themes-6.18.1.jar!/net/sf/jasperreports/chartthemes/spring/beans/defaultChartPropertiesBean.xml]
+jun 17, 2026 3:00:49 PM org.springframework.beans.factory.xml.XmlBeanDefinitionReader loadBeanDefinitions
+INFORMACIÓN: Loading XML bean definitions from URL [jar:file:/C:/1._GESTION_DE_IMPLEMENTACION_DE_TECNOLOGIAS/1._Gesti%c3%b3nTIC/ORQUESTADORDB/tools/jasperstarter/lib/jasperreports-chart-themes-6.18.1.jar!/net/sf/jasperreports/chartthemes/spring/beans/eyeCandySixtiesChartPropertiesBean.xml]
+jun 17, 2026 3:00:49 PM org.springframework.beans.factory.xml.XmlBeanDefinitionReader loadBeanDefinitions
+INFORMACIÓN: Loading XML bean definitions from URL [jar:file:/C:/1._GESTION_DE_IMPLEMENTACION_DE_TECNOLOGIAS/1._Gesti%c3%b3nTIC/ORQUESTADORDB/tools/jasperstarter/lib/jasperreports-chart-themes-6.18.1.jar!/net/sf/jasperreports/chartthemes/spring/beans/aegeanChartPropertiesBean.xml]
