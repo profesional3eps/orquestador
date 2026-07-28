@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
 from app.api.routes import filter_openapi_hidden_paths, router
 from app.core.exceptions import PermissionLookupFailed
@@ -52,6 +52,11 @@ app.add_middleware(
 )
 app.include_router(router)
 LOGO_PATH = Path(__file__).resolve().parent / "logo.jpg"
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/assets/logo.jpg", include_in_schema=False)

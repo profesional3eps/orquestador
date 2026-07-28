@@ -1,0 +1,20 @@
+CREATE TABLE orq.soporte_orden_medica_ips (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    consecutivo_solicitud INT NOT NULL,
+    consecutivo_solicitud_ips INT NOT NULL,
+    nombre_archivo NVARCHAR(255) NOT NULL,
+    ruta_archivo NVARCHAR(500) NOT NULL,
+    extension NVARCHAR(10) NULL,
+    tipo_mime NVARCHAR(100) NULL,
+    tamano_bytes BIGINT NULL,
+    usuario_carga NVARCHAR(100) NULL,
+    ip_carga NVARCHAR(50) NULL,
+    fecha_carga DATETIME DEFAULT GETDATE(),
+    fecha_movimiento DATETIME NULL,
+    hash_md5_origen NVARCHAR(64) NULL,
+    hash_md5_destino NVARCHAR(64) NULL,
+    estado_movimiento NVARCHAR(50) NULL,
+    mensaje_error NVARCHAR(500) NULL,
+    intentos INT DEFAULT 0,
+    activo BIT DEFAULT 1
+);

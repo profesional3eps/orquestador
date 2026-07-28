@@ -20,6 +20,7 @@ NOMBRE_MODALIDAD_AMBULATORIOS = "Ambulatorios"
 CAMPOS_MEDICAMENTO_IPS = frozenset({"cum", "cantidad", "dias", "observacion"})
 
 
+
 def validar_telefono_y_celular_obligatorios(
     pg_repo: PostgresRepository,
     telefono: str | None,

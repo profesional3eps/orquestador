@@ -700,6 +700,18 @@ FROM unnest(
 WHERE fdv.consecutivo_factura::text = src.consecutivo_factura
 """
 
+INSERT_SS_SOLICITUD_SOPORTE = """
+INSERT INTO administrativo.ss_solicitud_soporte (
+    consecutivo_solicitud,
+    consecutivo_soporte,
+    url
+) VALUES (
+    :consecutivo_solicitud,
+    :consecutivo_soporte,
+    :soporte_url
+)
+"""
+
 SALDO_VALOR_UPDATE_CHUNK_SIZE = 500
 
 
@@ -1194,3 +1206,40 @@ class PostgresRepository:
 
     def exists_medicamento_by_codigo_interno(self, codigo: str) -> bool:
         return self.db.execute(text(EXISTS_MEDICAMENTO_BY_CODIGO_INTERNO), {"codigo": codigo}).first() is not None
+
+    def create_soporte_orden_medica(
+        self,
+        *,
+        consecutivo_solicitud: int,
+        consecutivo_soporte: int,
+        soporte_file,
+    ) -> int:
+        
+        if consecutivo_solicitud is None:
+            raise ValueError("consecutivo_solicitud es requerido")
+        
+        if consecutivo_soporte is None:
+            raise ValueError("consecutivo_soporte es requerido")
+        
+
+        # Determinar nombre del archivo
+        if hasattr(soporte_file, "filename"):
+            nombre_archivo = soporte_file.filename
+        elif hasattr(soporte_file, "name"):
+            nombre_archivo = soporte_file.name
+        else:
+            nombre_archivo = str(soporte_file)
+
+        soporte_url = f"{consecutivo_solicitud}-{nombre_archivo}".strip()
+
+        self.db.execute(
+            text(INSERT_SS_SOLICITUD_SOPORTE),
+            {
+                "consecutivo_solicitud": consecutivo_solicitud,
+                "consecutivo_soporte": consecutivo_soporte,
+                "soporte_url": soporte_url,
+            },
+        )
+        self.db.commit()
+        return consecutivo_solicitud
+    

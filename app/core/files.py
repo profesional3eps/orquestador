@@ -23,8 +23,8 @@ def guardar_soporte_pdf(
     # Leer contenido
     content = file.file.read()
 
-    # if not content.startswith(b"%PDF"):
-    #     raise HTTPException(status_code=400, detail="El archivo no es un PDF válido")
+    if not content.startswith(b"%PDF"):
+         raise HTTPException(status_code=400, detail="El archivo no es un PDF válido")
 
     # Crear carpeta si no existe
     os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -43,7 +43,7 @@ def guardar_soporte_pdf(
         #"extension": extension,
         #"tipo_mime": file.content_type,
         #"tamano_bytes": len(content),
-        "nombre_archivo": filename,
+        "nombre_archivo": unique_name,
         "ruta_archivo": str(ruta),  # ✅ Convertir a string
         "extension": extension,
         "tipo_mime": file.content_type,

@@ -12,7 +12,6 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
-from app.core.files import guardar_soporte_pdf
 from app.core.soporte_orden_medica import validar_soporte_orden_medica_pdf
 from app.core.afiliado_estado import (
     ESTADOS_PERMITIDOS_AUTORIZACION_IPS,
@@ -20,6 +19,7 @@ from app.core.afiliado_estado import (
     nombre_estado_afiliado,
     estado_afiliado_permite_autorizacion_ips,
 )
+
 from app.core.database import get_postgres_session, get_sqlserver_session
 from app.core.tipo_identificacion import resolve_tipo_identificacion
 from app.core.permissions import (
@@ -105,6 +105,14 @@ from app.services.autorizacion_medicamentos_ips_service import (
     activar_autorizacion_orden_medica_ips,
     procesar_autorizacion_medicamentos_orden_medica_ips,
 )
+from fastapi import Body
+
+# servicio de contabilización/fin de autorización añadido aditivo
+from app.services.authorization_contabilizacion_service import (
+    build_authorization_handlers,
+    ValidationError as AuthorizationValidationError,
+)
+from app.services.messiah_autorizacion_pdf_service import adjuntar_pdf_respuesta
 
 router = APIRouter()
 service = OrchestratorService()
@@ -148,7 +156,9 @@ ESTADOS_CONTRATO_LABELS = {
 }
 SOPORTES_DOC_IDENTIDAD_VALIDOS = {"CN", "RC", "TI", "CC", "CE", "PA", "CD", "SC", "PE", "MS", "CERTIFICADO_REGISTRADURIA"}
 SOPORTES_EXT_VALIDAS = {".pdf", ".png", ".jpg", ".jpeg"}
-
+SOPORTE_ORDEN_MEDICAMENTO = "10000019"
+SOPORTE_HISTORIA_CLINICA_MEDICAMENTO = "15"
+SOPORTE_ADICIONAL_AUTORIZACION_MEDICAMENTO = "10000056"
 
 def _descripcion_soporte_confirmacion() -> str:
     max_mb = get_settings().orden_medica_soporte_max_mb
@@ -2068,23 +2078,37 @@ def registrar_autorizacion_orden_medica_ips(
         ips_auth = out.get("ips_autorizada")
         prestador = out.get("prestador_resuelto")
 
-        archivo_info = guardar_soporte_pdf(
-            soporte_orden_medica,
-            username=username,
-        )
-
         # Validar antes de convertir
         if not out.get("consecutivo_solicitud"):
             raise ValueError("consecutivo_solicitud no puede ser None")
         
+        #inserta datos del soporte en la db sqlserver
         sql_repo.guardar_soporte_orden_medica_ips(
             consecutivo_solicitud=int(out["consecutivo_solicitud"]) or "",
             consecutivo_solicitud_ips=int(out["consecutivo_solicitud_ips"]) or "",
-            archivo_info=archivo_info,
+            archivo_info={
+                "nombre_archivo": soporte_filename or f"{out['consecutivo_solicitud']}.pdf",
+                "ruta_archivo": f"sie_descargas/soporte_ips_solicitud_autorizacion/{out['consecutivo_solicitud_ips']}.pdf",
+                "extension": ".pdf",
+                "tipo_mime": soporte_orden_medica.content_type if soporte_orden_medica else "application/pdf",
+                "tamano_bytes": len(soporte_data) if soporte_data else 0,
+            },
             usuario=username,
             ip=client_ip,
         )
-        
+
+        pg_repo.create_soporte_orden_medica(
+            consecutivo_solicitud=int(out["consecutivo_solicitud"]) or "",
+                consecutivo_soporte="10000019",
+                archivo_info={
+                    "nombre_archivo": soporte_filename or f"{out['consecutivo_solicitud']}.pdf",
+                    "ruta_archivo": f"sie_descargas/soporte_ips_solicitud_autorizacion/{out['consecutivo_solicitud_ips']}.pdf",
+                    "extension": ".pdf",
+                    "tipo_mime": soporte_orden_medica.content_type if soporte_orden_medica else "application/pdf",
+                    "tamano_bytes": len(soporte_data) if soporte_data else 0,
+                }
+        )
+
         return AutorizacionOrdenMedicaIpsResponse(
             consecutivo_solicitud=int(out["consecutivo_solicitud"]),
             consecutivo_solicitud_ips=int(out["consecutivo_solicitud_ips"]),
@@ -2315,6 +2339,26 @@ def activar_autorizacion_orden_medica_ips_endpoint(
         )
 
         prestador = out.get("prestador_direccionamiento")
+
+        # Validar antes de convertir
+        if not out.get("consecutivo_solicitud"):
+            raise ValueError("consecutivo_solicitud no puede ser None")
+        
+        #inserta datos del soporte en la db
+        sql_repo.guardar_soporte_orden_medica_ips(
+            consecutivo_solicitud=int(out["consecutivo_solicitud"]) or "",
+            consecutivo_solicitud_ips=int(out["numero_solicitud"]) or "",
+            archivo_info={
+                "nombre_archivo": soporte_confirmacion_filename or f"{out['consecutivo_autorizacion']}.pdf",
+                "ruta_archivo": f"sie_descargas/autorizacion_confirmada/{out['consecutivo_autorizacion']}-{soporte_confirmacion_filename}",
+                "extension": ".pdf",
+                "tipo_mime": soporte_confirmacion.content_type or "application/pdf",
+                "tamano_bytes": len(soporte_confirmacion_data) if soporte_confirmacion_data else 0,
+            },
+            usuario=username,
+            ip=client_ip,
+        )
+
         return ActivacionOrdenMedicaIpsResponse(
             consecutivo_autorizacion=int(out["consecutivo_autorizacion"]),
             consecutivo_interno=str(out["consecutivo_interno"]),
@@ -2388,68 +2432,138 @@ def activar_autorizacion_orden_medica_ips_endpoint(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
-@router.post(
-    "/execute/facturas_decimales",
-    response_model=ApiExecutionResponse,
-    include_in_schema=_include_in_openapi("/execute/facturas_decimales"),
-    tags=["Procesos Financieros"],
-    summary="Ajuste decimal de facturas",
-    description=(
-        "Ejecuta el proceso de ajuste decimal de facturas según la parametrización financiera del sistema."
-    ),
-    responses=merge_openapi_responses(
-        {
-            200: {"description": "Lote procesado; estadísticas en `ApiExecutionResponse`."},
-            503: {
-                "description": "No se pudieron leer permisos en base de datos (p. ej. falta SELECT en tablas del esquema seg).",
-            },
-        },
-        RESP_401_BEARER,
-        RESP_403_PERMISOS,
-        RESP_500_INTERNO,
-    ),
-)
-def execute_facturas_decimales(
-    username: str = Depends(require_permission(MOD_FACTURAS_DECIMALES, ACC_EJECUTAR)),
-) -> ApiExecutionResponse:
-    try:
-        return service.run_service1(executed_by=username)
-    except Exception as exc:  # pragma: no cover
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.post(
-    "/execute/update_saldo_y_valor_factura",
-    response_model=ApiExecutionResponse,
-    include_in_schema=_include_in_openapi("/execute/update_saldo_y_valor_factura"),
-    tags=["Procesos Financieros"],
-    summary="Actualización de saldo y valor de facturas",
-    description=(
-        "Ejecuta el proceso de actualización del saldo y valor de las facturas pendientes en el sistema."
-    ),
-    responses=merge_openapi_responses(
-        {
-            200: {"description": "Flujo completado; estadísticas en `ApiExecutionResponse`."},
-            503: {
-                "description": "No se pudieron leer permisos en base de datos (p. ej. falta SELECT en tablas del esquema seg).",
-            },
-        },
-        RESP_401_BEARER,
-        RESP_403_PERMISOS,
-        RESP_500_INTERNO,
-    ),
-)
-def execute_update_saldo_y_valor(
-    username: str = Depends(require_permission(MOD_UPDATE_SALDO_VALOR, ACC_EJECUTAR)),
-) -> ApiExecutionResponse:
-    try:
-        return service.run_service2_and_service3(executed_by=username)
-    except Exception as exc:  # pragma: no cover
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+## Endpoints añadidos: finalizar y contabilizar autorizaciones (módulo aditivo)
+#finalizar_handler, contabilizar_handler = build_authorization_handlers()
 
 
-@router.post("/execute/service1", include_in_schema=False, tags=["Ejecución"])
-def execute_service1_legacy(
-    username: str = Depends(require_permission(MOD_FACTURAS_DECIMALES, ACC_EJECUTAR)),
-) -> ApiExecutionResponse:
-    return service.run_service1(executed_by=username)
+# @router.post(
+#     "/autorizaciones/{autorizacion_id}/finalizar",
+#     tags=["Procesos IPS"],
+#     summary="Cerrar/Finalizar una autorización (aditivo)",
+#     include_in_schema=_include_in_openapi("/autorizaciones/{autorizacion_id}/finalizar"),
+# )
+# def finalizar_autorizacion_endpoint(
+#     autorizacion_id: int,
+#     payload: dict[str, Any] = Body(...),
+#     username: str = Depends(require_autoriza_med),
+#     pg: Session = Depends(get_postgres_session),
+# ) -> dict:
+#     try:
+#         # delega en el servicio sin tocar lógicas existentes
+#         out =   finalizar_handler(autorizacion_id, payload)
+
+#         # intentar generar PDF usando los reportes/Messiah si está disponible
+#         settings = get_settings()
+#         try:
+#             adjuntar_pdf_respuesta(out, pg, settings, consecutivo_autorizacion=autorizacion_id, usuario=username, etapa="activada")
+#         except Exception:
+#             out.setdefault("pdf_aviso", "Error al generar PDF de autorización (no crítico).")
+
+#         return out
+#     except AuthorizationValidationError as ve:
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
+#     except Exception as exc:
+#         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+# @router.post(
+#     "/autorizaciones/{autorizacion_id}/contabilizar",
+#     tags=["Procesos IPS"],
+#     summary="Contabilizar una autorización (aditivo)",
+#     include_in_schema=_include_in_openapi("/autorizaciones/{autorizacion_id}/contabilizar"),
+# )
+# def contabilizar_autorizacion_endpoint(
+#     autorizacion_id: int,
+#     payload: dict[str, Any] = Body(...),
+#     username: str = Depends(require_autoriza_med),
+#     pg: Session = Depends(get_postgres_session),
+# ):
+#     try:
+#         # contabiliza la autorización y, si es posible, agrega el PDF final de autorización
+#         out = contabilizar_handler(autorizacion_id, payload)
+#         settings = get_settings()
+#         try:
+#             adjuntar_pdf_respuesta(
+#                 out,
+#                 pg,
+#                 settings,
+#                 consecutivo_autorizacion=autorizacion_id,
+#                 usuario=username,
+#                 etapa="activada",
+#             )
+#         except Exception:
+#             out.setdefault("pdf_aviso", "Error al generar PDF de autorización tras contabilizar (no crítico).")
+#         return out
+#     except HTTPException as ve:
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
+#     except Exception as exc:
+#         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+# @router.post(
+#     "/execute/facturas_decimales",
+#     response_model=ApiExecutionResponse,
+#     include_in_schema=_include_in_openapi("/execute/facturas_decimales"),
+#     tags=["Procesos Financieros"],
+#     summary="Ajuste decimal de facturas",
+#     description=(
+#         "Ejecuta el proceso de ajuste decimal de facturas según la parametrización financiera del sistema."
+#     ),
+#     responses=merge_openapi_responses(
+#         {
+#             200: {"description": "Lote procesado; estadísticas en `ApiExecutionResponse`."},
+#             503: {
+#                 "description": "No se pudieron leer permisos en base de datos (p. ej. falta SELECT en tablas del esquema seg).",
+#             },
+#         },
+#         RESP_401_BEARER,
+#         RESP_403_PERMISOS,
+#         RESP_500_INTERNO,
+#     ),
+# )
+# def execute_facturas_decimales(
+#     username: str = Depends(require_permission(MOD_FACTURAS_DECIMALES, ACC_EJECUTAR)),
+# ) -> ApiExecutionResponse:
+#     try:
+#         return service.run_service1(executed_by=username)
+#     except Exception as exc:  # pragma: no cover
+#         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+# @router.post(
+#     "/execute/update_saldo_y_valor_factura",
+#     response_model=ApiExecutionResponse,
+#     include_in_schema=_include_in_openapi("/execute/update_saldo_y_valor_factura"),
+#     tags=["Procesos Financieros"],
+#     summary="Actualización de saldo y valor de facturas",
+#     description=(
+#         "Ejecuta el proceso de actualización del saldo y valor de las facturas pendientes en el sistema."
+#     ),
+#     responses=merge_openapi_responses(
+#         {
+#             200: {"description": "Flujo completado; estadísticas en `ApiExecutionResponse`."},
+#             503: {
+#                 "description": "No se pudieron leer permisos en base de datos (p. ej. falta SELECT en tablas del esquema seg).",
+#             },
+#         },
+#         RESP_401_BEARER,
+#         RESP_403_PERMISOS,
+#         RESP_500_INTERNO,
+#     ),
+# )
+# def execute_update_saldo_y_valor(
+#     username: str = Depends(require_permission(MOD_UPDATE_SALDO_VALOR, ACC_EJECUTAR)),
+# ) -> ApiExecutionResponse:
+#     try:
+#         return service.run_service2_and_service3(executed_by=username)
+#     except Exception as exc:  # pragma: no cover
+#         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# @router.post("/execute/service1", include_in_schema=False, tags=["Ejecución"])
+# def execute_service1_legacy(
+#     username: str = Depends(require_permission(MOD_FACTURAS_DECIMALES, ACC_EJECUTAR)),
+# ) -> ApiExecutionResponse:
+#     return service.run_service1(executed_by=username)

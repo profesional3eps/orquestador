@@ -65,6 +65,42 @@ WHERE a.consecutivo_autorizacion = :consecutivo_autorizacion
 LIMIT 1
 """
 
+# Consulta extendida: incluye datos de afiliado y nombre de prestador para nutrir la plantilla
+AUTORIZACION_META_EXT_SQL = """
+SELECT
+        a.consecutivo_autorizacion,
+        a.consecutivo_interno,
+        a.consecutivo_solicitud,
+        a.consecutivo_ips,
+        a.nit_prestador,
+        a.usuario_grabado,
+        a.tipo_proceso,
+        a.fecha_activacion,
+        a.fecha_real_prestacion_servicio,
+        s.numero_solicitud,
+        a.tipo_identificacion_afiliado,
+        a.numero_identificacion_afiliado,
+        af.primer_nombre,
+        af.segundo_nombre,
+        af.primer_apellido,
+        af.segundo_apellido,
+        COALESCE(i.razon_social, '') AS prestador_nombre
+FROM administrativo.ss_autorizacion a
+LEFT JOIN administrativo.ss_solicitud s ON s.consecutivo_solicitud = a.consecutivo_solicitud
+LEFT JOIN administrativo.af_afiliado af ON af.afiliado = a.afiliado
+LEFT JOIN administrativo.ct_ips i ON i.ips = a.consecutivo_ips
+WHERE a.consecutivo_autorizacion = :consecutivo_autorizacion
+    AND a.fecha_anula IS NULL
+LIMIT 1
+"""
+
+MEDICAMENTOS_AUTORIZADOS_SQL = """
+SELECT COALESCE(string_agg(CONCAT(am.medicamento, ' x', am.cantidad), '; '), '') AS medicamentos
+FROM administrativo.ss_autorizacion_medicamento am
+WHERE am.consecutivo_autorizacion = :consecutivo_autorizacion
+    AND am.fecha_cancelacion IS NULL
+"""
+
 EMPRESA_SQL = """
 SELECT
     razon_social,
@@ -501,14 +537,37 @@ def generar_pdf_autorizacion_completa(
     prestado: bool = False,
 ) -> tuple[bytes | None, str, str | None]:
     """PDF autorización completa (Messiah reporteAutorizacionPrestado — reAutorizacion.jasper)."""
-    meta = _fetch_meta(pg, consecutivo_autorizacion)
+    # Intentar obtener meta extendido (afiliado y prestador). Si falla, caer al meta básico.
+    meta = None
+    try:
+        meta = pg.execute(text(AUTORIZACION_META_EXT_SQL), {"consecutivo_autorizacion": int(consecutivo_autorizacion)}).mappings().first()
+    except Exception:
+        meta = None
+
     if meta is None:
-        return None, "", "Autorización no encontrada para generar PDF."
+        meta = _fetch_meta(pg, consecutivo_autorizacion)
+        if meta is None:
+            return None, "", "Autorización no encontrada para generar PDF."
+
+    meta = dict(meta)
 
     empresa = _fetch_empresa(pg)
     nombre_empresa = str(empresa.get("razon_social") or settings.eps_nombre_entidad)
     usuario_grabado = str(meta.get("usuario_grabado") or usuario_sesion or "")
     numero_solicitud = str(meta.get("numero_solicitud") or "")
+
+    # Obtener lista legible de medicamentos autorizados (codigo x cantidad)
+    try:
+        meds_row = pg.execute(text(MEDICAMENTOS_AUTORIZADOS_SQL), {"consecutivo_autorizacion": int(consecutivo_autorizacion)}).mappings().first()
+        medicamentos_aprobados = str(meds_row["medicamentos"] or "") if meds_row else ""
+    except Exception:
+        medicamentos_aprobados = ""
+
+    # Construir nombre completo del afiliado
+    nombre_afiliado = ""
+    if meta.get("primer_nombre"):
+        partes = [str(meta.get(k) or "") for k in ("primer_nombre", "segundo_nombre", "primer_apellido", "segundo_apellido")]
+        nombre_afiliado = " ".join(p for p in partes if p).strip()
 
     params: dict[str, Any] = {
         **_LABELS_COMPLETO,
@@ -518,6 +577,11 @@ def generar_pdf_autorizacion_completa(
         "TELEFONO_USUARIO": "",
         "CELULAR_USUARIO": "",
         "NOMBRE_USUARIO": usuario_sesion[:200],
+        "NOMBRE_AFILIADO": nombre_afiliado[:200],
+        "TIPO_DOCUMENTO_AFILIADO": str(meta.get("tipo_identificacion_afiliado") or ""),
+        "NUMERO_DOCUMENTO_AFILIADO": str(meta.get("numero_identificacion_afiliado") or ""),
+        "MEDICAMENTOS_APROBADOS": medicamentos_aprobados,
+        "PRESTADOR_DIRECCIONADO": str(meta.get("prestador_nombre") or ""),
         "ES_EMPRESA": _es_empresa_prestador(pg, meta.get("nit_prestador")),
         "NUMERO_SOLICITUD_USUARIO": numero_solicitud,
         "NIT_EMPRESA": str(empresa.get("nit") or settings.eps_nit_entidad),
@@ -588,7 +652,20 @@ def adjuntar_pdf_respuesta(
         destino["pdf_aviso"] = aviso
 
     if not pdf_bytes:
-        return
+        # intentar fallback simple con reportlab si Jasper no creó el PDF
+        try:
+            pdf_bytes, nombre, aviso_simple = generar_pdf_autorizacion_simple(
+                pg,
+                settings,
+                consecutivo_autorizacion=int(consecutivo_autorizacion),
+                usuario_sesion=usuario,
+            )
+            if aviso_simple:
+                destino.setdefault("pdf_aviso", aviso_simple)
+        except Exception as e:  # pragma: no cover
+            destino.setdefault("pdf_aviso", f"Generador alternativo PDF falló: {e}")
+        if not pdf_bytes:
+            return
 
     destino["autorizacion_pdf_base64"] = base64.b64encode(pdf_bytes).decode("ascii")
     destino["autorizacion_pdf_nombre"] = nombre
