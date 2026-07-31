@@ -14,6 +14,16 @@ import threading
 from pathlib import Path
 from typing import Any, Literal
 
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.units import inch
+from io import BytesIO
+from datetime import date, datetime
+from app.repositories.messiah_auditoria_repository import fetch_medicamentos_autorizacion
+
+
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
@@ -671,3 +681,116 @@ def adjuntar_pdf_respuesta(
     destino["autorizacion_pdf_nombre"] = nombre
     destino["pdf_generado"] = True
     destino["pdf_aviso"] = None
+
+
+def generar_pdf_autorizacion_simple(
+    pg: Session,
+    settings: Settings,
+    *,
+    consecutivo_autorizacion: int,
+    usuario_sesion: str,
+) -> tuple[bytes | None, str, str | None]:
+    try:
+        meta = pg.execute(
+            text(AUTORIZACION_META_EXT_SQL),
+            {"consecutivo_autorizacion": int(consecutivo_autorizacion)},
+        ).mappings().first()
+        if meta is None:
+            return None, "", "Autorización no encontrada."
+
+        empresa = _fetch_empresa(pg)
+        meds_rows = fetch_medicamentos_autorizacion(pg, consecutivo_autorizacion)
+
+        # Datos del afiliado
+        partes = [str(meta.get(k) or "") for k in ("primer_nombre", "segundo_nombre", "primer_apellido", "segundo_apellido")]
+        nombre_afiliado = " ".join(p for p in partes if p).strip()
+        tipo_doc = str(meta.get("tipo_identificacion_afiliado") or "")
+        num_doc = str(meta.get("numero_identificacion_afiliado") or "")
+        prestador = str(meta.get("prestador_nombre") or "")
+
+        # Medicamentos
+        med_lines = []
+        for m in meds_rows:
+            cod = str(m.get("codigo_propio") or m.get("medicamento") or "")
+            prog = m.get("fecha_programacion")
+            prog_str = prog.isoformat() if prog else ""
+            med_lines.append(f"{cod} — Prog: {prog_str}")
+
+        medicamentos_text = "\n".join(med_lines) if med_lines else "Sin medicamentos"
+
+        eps_nombre = str(empresa.get("razon_social") or settings.eps_nombre_entidad)
+
+        buf = BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=letter)
+        styles = getSampleStyleSheet()
+        style_title = ParagraphStyle("Title2", parent=styles["Title"], fontSize=14, spaceAfter=12)
+        style_normal = ParagraphStyle("Normal2", parent=styles["Normal"], fontSize=9, leading=12)
+        style_header = ParagraphStyle("Header2", parent=styles["Heading2"], fontSize=11, spaceAfter=6)
+
+        elements = []
+
+        elements.append(Paragraph(f"AUTORIZACIÓN N° {consecutivo_autorizacion}", style_title))
+        elements.append(Spacer(1, 0.15 * inch))
+
+        # Datos del afiliado
+        data = [
+            ["DATOS DEL AFILIADO", "", ""],
+            ["Nombre:", nombre_afiliado, ""],
+            ["Documento:", f"{tipo_doc} {num_doc}", ""],
+            ["EPS:", eps_nombre, ""],
+            ["", "", ""],
+            ["DATOS DEL PRESTADOR", "", ""],
+            ["IPS Direccionamiento:", prestador, ""],
+            ["", "", ""],
+            ["FECHAS", "", ""],
+        ]
+        fa = meta.get("fecha_activacion")
+        frp = meta.get("fecha_real_prestacion_servicio")
+        if fa:
+            fecha_act = fa.isoformat() if isinstance(fa, (date, datetime)) else str(fa)
+            data.append(["Fecha Activación:", fecha_act, ""])
+        if frp:
+            fecha_prest = frp.isoformat() if isinstance(frp, (date, datetime)) else str(frp)
+            data.append(["Fecha Prestación:", fecha_prest, ""])
+        data.append(["Usuario:", usuario_sesion, ""])
+
+        data.append(["", "", ""])
+        data.append(["MEDICAMENTOS", "", ""])
+        for line in med_lines:
+            data.append([line, "", ""])
+
+        t = Table(data, colWidths=[2.2 * inch, 3.8 * inch, 0])
+        t.setStyle(TableStyle([
+            ("SPAN", (0, 0), (-1, 0)),
+            ("SPAN", (0, 5), (-1, 5)),
+            ("SPAN", (0, 11), (-1, 11)),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2F5496")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("BACKGROUND", (0, 5), (-1, 5), colors.HexColor("#2F5496")),
+            ("TEXTCOLOR", (0, 5), (-1, 5), colors.white),
+            ("BACKGROUND", (0, 11), (-1, 11), colors.HexColor("#2F5496")),
+            ("TEXTCOLOR", (0, 11), (-1, 11), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 5), (-1, 5), "Helvetica-Bold"),
+            ("FONTNAME", (0, 11), (-1, 11), "Helvetica-Bold"),
+            ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(t)
+
+        doc.build(elements)
+        pdf_bytes = buf.getvalue()
+        nombre = f"autorizacion_{consecutivo_autorizacion}.pdf"
+
+        if not pdf_bytes or len(pdf_bytes) < 256:
+            return None, nombre, "PDF generado vacío."
+
+        return pdf_bytes, nombre, None
+
+    except Exception as exc:
+        return None, "", f"Error generando PDF simple: {exc}"

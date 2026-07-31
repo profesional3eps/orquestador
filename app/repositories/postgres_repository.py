@@ -712,6 +712,16 @@ INSERT INTO administrativo.ss_solicitud_soporte (
 )
 """
 
+INSERT_TB_AUTORIZACION_BOT = """
+INSERT INTO administrativo.tb_autorizacion_bot (
+    consecutivo_autorizacion,
+    sw_contabiliza
+) VALUES (
+    :consecutivo_autorizacion,
+    :sw_contabiliza
+)
+"""
+
 SALDO_VALOR_UPDATE_CHUNK_SIZE = 500
 
 
@@ -1212,7 +1222,7 @@ class PostgresRepository:
         *,
         consecutivo_solicitud: int,
         consecutivo_soporte: int,
-        soporte_file,
+        archivo_info,
     ) -> int:
         
         if consecutivo_solicitud is None:
@@ -1223,12 +1233,14 @@ class PostgresRepository:
         
 
         # Determinar nombre del archivo
-        if hasattr(soporte_file, "filename"):
-            nombre_archivo = soporte_file.filename
-        elif hasattr(soporte_file, "name"):
-            nombre_archivo = soporte_file.name
+        if hasattr(archivo_info, "filename"):
+            nombre_archivo = archivo_info.filename
+        elif hasattr(archivo_info, "name"):
+            nombre_archivo = archivo_info.name
+        elif isinstance(archivo_info, dict):
+            nombre_archivo = archivo_info.get("nombre_archivo", "archivo.pdf")
         else:
-            nombre_archivo = str(soporte_file)
+            raise ValueError("archivo_info no tiene un formato válido")
 
         soporte_url = f"{consecutivo_solicitud}-{nombre_archivo}".strip()
 
@@ -1242,4 +1254,25 @@ class PostgresRepository:
         )
         self.db.commit()
         return consecutivo_solicitud
+
+    def insert_autorizacion_bot(self, consecutivo_autorizacion: int) -> bool:
+        try:
+                self.db.execute(
+                    text(INSERT_TB_AUTORIZACION_BOT), 
+                    {
+                        "consecutivo_autorizacion": consecutivo_autorizacion,
+                        "sw_contabiliza": 0
+                    }
+                )
+
+                self.db.commit()
+
+                return True
+
+        except Exception as e:
+            print(f"Error insertando: {e}")
+            self.db.rollback()
+            return False
+
+            
     
