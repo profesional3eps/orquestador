@@ -397,43 +397,43 @@ def contabilizar_autorizacion_medicamentos(
     if abs(suma) > 1:
         raise MessiahContabilizacionError(f"El asiento contable no cuadra (diferencia {suma:.2f}).")
 
-    db.execute(
-        text(INSERT_SALDO_ENCABEZADO),
-        {
-            "consecutivo_saldo": consecutivo_saldo,
-            "documento": int(consecutivo_autorizacion),
-            "documento_soporte": documento,
-            "documento_nota": documento_nota,
-            "tipo_documento": TIPO_DOCUMENTO_NOTA_AUTORIZACION,
-            "descripcion_tipo_documento": DESCRIPCION_TIPO_NOTA_AUTORIZACION,
-            "usuario_grabado": username[:100],
-            "fecha_grabado": grabado,
-            "observacion": observacion[:500],
-            "fecha": fecha,
-            "tercero": tercero_eps,
-        },
-    )
-    db.execute(
-        text(INSERT_SALDO_ENCABEZADO_DOCUMENTO),
-        {
-            "consecutivo_saldo": consecutivo_saldo,
-            "llave": int(consecutivo_autorizacion),
-            "tipo_documento": TIPO_DOCUMENTO_NOTA_AUTORIZACION,
-            "documento_nota": documento_nota,
-            "documento_soporte": documento,
-        },
-    )
-    for det in detalles:
-        db.execute(text(INSERT_SALDO_DETALLE), det)
+    # db.execute(
+    #     text(INSERT_SALDO_ENCABEZADO),
+    #     {
+    #         "consecutivo_saldo": consecutivo_saldo,
+    #         "documento": int(consecutivo_autorizacion),
+    #         "documento_soporte": documento,
+    #         "documento_nota": documento_nota,
+    #         "tipo_documento": TIPO_DOCUMENTO_NOTA_AUTORIZACION,
+    #         "descripcion_tipo_documento": DESCRIPCION_TIPO_NOTA_AUTORIZACION,
+    #         "usuario_grabado": username[:100],
+    #         "fecha_grabado": grabado,
+    #         "observacion": observacion[:500],
+    #         "fecha": fecha,
+    #         "tercero": tercero_eps,
+    #     },
+    # )
+    # db.execute(
+    #     text(INSERT_SALDO_ENCABEZADO_DOCUMENTO),
+    #     {
+    #         "consecutivo_saldo": consecutivo_saldo,
+    #         "llave": int(consecutivo_autorizacion),
+    #         "tipo_documento": TIPO_DOCUMENTO_NOTA_AUTORIZACION,
+    #         "documento_nota": documento_nota,
+    #         "documento_soporte": documento,
+    #     },
+    # )
+    # for det in detalles:
+    #     db.execute(text(INSERT_SALDO_DETALLE), det)
 
-    updated = db.execute(
-        text(UPDATE_AUTORIZACION_SALDO),
-        {
-            "consecutivo_saldo": consecutivo_saldo,
-            "consecutivo_autorizacion": int(consecutivo_autorizacion),
-        },
-    )
-    if (updated.rowcount or 0) == 0:
-        raise MessiahContabilizacionError("La autorización ya fue contabilizada por otro proceso.")
-    db.commit()
-    return consecutivo_saldo
+    # updated = db.execute(
+    #     text(UPDATE_AUTORIZACION_SALDO),
+    #     {
+    #         "consecutivo_saldo": consecutivo_saldo,
+    #         "consecutivo_autorizacion": int(consecutivo_autorizacion),
+    #     },
+    # )
+    # if (updated.rowcount or 0) == 0:
+    #     raise MessiahContabilizacionError("La autorización ya fue contabilizada por otro proceso.")
+    # db.commit()
+    # return consecutivo_saldo
