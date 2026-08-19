@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from typing import Any
+
+from app.core.zona_horaria import hoy_bogota
 
 from app.repositories.messiah_direccionamiento_repository import MessiahDireccionamientoRepository
 from app.services.medicamento_validacion_messiah import aplicar_validaciones_autorizacion_messiah
@@ -101,6 +104,24 @@ class DireccionamientoService:
             return int(clave)
         return self.UBICACION_MAP.get(clave, 3)
 
+    # @staticmethod
+    # def _edad_afiliado_anios(fecha_nacimiento: Any, *, referencia: date | None = None) -> int | None:
+    #     """Edad en años completos a partir de la fecha de nacimiento (Messiah af_afiliado)."""
+    #     if fecha_nacimiento is None or str(fecha_nacimiento).strip() == "":
+    #         return None
+    #     if isinstance(fecha_nacimiento, date):
+    #         nacimiento = fecha_nacimiento
+    #     else:
+    #         try:
+    #             nacimiento = date.fromisoformat(str(fecha_nacimiento)[:10])
+    #         except (TypeError, ValueError):
+    #             return None
+    #     ref = referencia or hoy_bogota()
+    #     anios = ref.year - nacimiento.year
+    #     if (ref.month, ref.day) < (nacimiento.month, nacimiento.day):
+    #         anios -= 1
+    #     return max(anios, 0)
+
     @staticmethod
     def ips_permite_autorizacion_automatica_medicamentos(ips: dict[str, Any]) -> bool:
         """
@@ -135,6 +156,12 @@ class DireccionamientoService:
             ips_id, municipio_afiliado
         )
 
+##nuevo
+        med_rows_cache: dict[str, dict[str, Any] | None] = {}
+        tarifa_cache: dict[tuple[int, str, str], dict[str, Any] | None] = {}
+        direccionamiento_cache: dict[int, bool] = {}
+#######
+
         evaluados: list[MedicamentoEvaluado] = []
         for idx, item in enumerate(items, start=1):
             cum = str(item.get("cum") or item.get("codigo_interno") or "").strip()
@@ -150,7 +177,17 @@ class DireccionamientoService:
             observacion = str(item.get("observacion") or "").strip()
 
             motivos: list[str] = []
-            med_row = self.repo.fetch_medicamento_por_cum(cum) if cum else None
+            ##med_row = self.repo.fetch_medicamento_por_cum(cum) if cum else None
+#######
+
+            med_row = None
+            if cum:
+                if cum not in med_rows_cache:
+                    med_rows_cache[cum] = self.repo.fetch_medicamento_por_cum(cum)
+                med_row = med_rows_cache[cum]
+
+########
+
             if med_row is None:
                 descripcion = ""
             else:
@@ -185,9 +222,16 @@ class DireccionamientoService:
                         "con tarifario de medicamentos y cobertura para el municipio del afiliado."
                     )
                 else:
-                    tarifa = self.repo.fetch_tarifario_medicamento_contratos_municipio(
-                        ips_id, municipio_afiliado, codigo
-                    )
+                    ##tarifa = self.repo.fetch_tarifario_medicamento_contratos_municipio(
+                    ##    ips_id, municipio_afiliado, codigo
+                    ##)
+                    tarifa_key = (ips_id, municipio_afiliado, codigo)
+                    if tarifa_key not in tarifa_cache:
+                        tarifa_cache[tarifa_key] = self.repo.fetch_tarifario_medicamento_contratos_municipio(
+                            ips_id, municipio_afiliado, codigo
+                        )
+                    tarifa = tarifa_cache[tarifa_key]
+
                     if tarifa is None:
                         motivos.append(
                             f"Medicamento CUM '{cum}' no está en ningún tarifario de medicamentos de los "
@@ -210,6 +254,26 @@ class DireccionamientoService:
                         if not descripcion:
                             descripcion = str(tarifa.get("descripcion") or "").strip()
 
+                # edad_min = int(med_row.get("edad_minima") or 0)
+                # edad_max = int(med_row.get("edad_maxima") or 0)
+                # if edad_min > 0 or edad_max > 0:
+                #     edad = self._edad_afiliado_anios(afiliado.get("fecha_nacimiento"))
+                #     if edad is None:
+                #         motivos.append(
+                #             f"Medicamento CUM '{cum}' no puede autorizarse: no se pudo determinar la edad del afiliado."
+                #         )
+                #     else:
+                #         if edad_min > 0 and edad < edad_min:
+                #             motivos.append(
+                #                 f"El afiliado no tiene edad apta para recibir el medicamento CUM '{cum}' "
+                #                 f"(edad mínima requerida {edad_min} años)."
+                #             )
+                #         if edad_max > 0 and edad > edad_max:
+                #             motivos.append(
+                #                 f"El afiliado no tiene edad apta para recibir el medicamento CUM '{cum}' "
+                #                 f"(edad máxima permitida {edad_max} años)."
+                #             )
+
             if not habilitada:
                 motivos.append("La IPS prestadora no está habilitada (sw_habilitada=0).")
             if not auto_ips:
@@ -217,12 +281,27 @@ class DireccionamientoService:
                     "La IPS no está habilitada para autorización automatizada de medicamentos "
                     "(ct_ips.tipo_autoriza≠2 y ct_ips.tipo_medicamento≠2)."
                 )
-            if med_row and requiere_dir and not self.repo.medicamento_en_direccionamiento(
-                int(ips["ips"]), int(med_row["medicamento"])
+                
+            # if med_row and requiere_dir and not self.repo.medicamento_en_direccionamiento(
+            #     int(ips["ips"]), int(med_row["medicamento"])
+            # ):
+            #     motivos.append(
+            #         f"Medicamento CUM '{cum}' no está parametrizado en direccionamiento para esta IPS."
+            #     )
+
+            medicamento_id = int(med_row["medicamento"]) if med_row and med_row.get("medicamento") is not None else None
+            if (
+                medicamento_id is not None
+                and requiere_dir
             ):
-                motivos.append(
-                    f"Medicamento CUM '{cum}' no está parametrizado en direccionamiento para esta IPS."
-                )
+                if medicamento_id not in direccionamiento_cache:
+                    direccionamiento_cache[medicamento_id] = self.repo.medicamento_en_direccionamiento(
+                        int(ips["ips"]), medicamento_id
+                    )
+                if not direccionamiento_cache[medicamento_id]:
+                    motivos.append(
+                        f"Medicamento CUM '{cum}' no está parametrizado en direccionamiento para esta IPS."
+                    )
 
             autorizado = not motivos and med_row is not None
             evaluados.append(

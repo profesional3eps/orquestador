@@ -109,6 +109,66 @@ from fastapi import Body
 router = APIRouter()
 service = OrchestratorService()
 
+# Ruta de upload
+RUTA_UPLOAD = Path(__file__).parent.parent / 'upload'
+RUTA_UPLOAD.mkdir(parents=True, exist_ok=True)
+
+def guardar_archivo_fisico(archivo_info: UploadFile, consecutivo_solicitud: int) -> dict:
+    """
+    Guarda archivo físicamente y retorna información para la BD
+    
+    Args:
+        archivo: UploadFile de FastAPI
+        consecutivo: Consecutivo para nombrar el archivo
+        subcarpeta: Subcarpeta dentro de upload
+    
+    Returns:
+        dict con la información del archivo guardado
+    """
+
+    if not archivo_info:
+        raise ValueError("No se recibió ningún archivo.")
+
+    # Crear carpeta
+    carpeta = RUTA_UPLOAD
+    carpeta.mkdir(parents=True, exist_ok=True)
+
+    # Posicionar el archivo al inicio
+    archivo_info.file.seek(0)
+
+    # Leer contenido
+    contenido = archivo_info.file.read()
+
+    if not contenido:
+        raise ValueError(
+            f"El archivo '{archivo_info.filename}' está vacío o ya fue leído."
+        )
+
+    # Obtener extensión
+    extension = Path(archivo_info.filename or "").suffix.lower()
+
+    if not extension:
+        extension = ".pdf"
+
+    # Generar nombre único
+    nombre_archivo = f"{consecutivo_solicitud}-{archivo_info.filename}"
+
+    ruta_completa = carpeta / nombre_archivo
+
+    # Guardar
+    with open(ruta_completa, "wb") as f:
+        f.write(contenido)
+
+    # Volver al inicio por si posteriormente se necesita leer
+    archivo_info.file.seek(0)
+
+    return {
+        "ruta_archivo": f"upload/{nombre_archivo}",
+        "nombre_archivo": nombre_archivo,
+        "nombre_original": archivo_info.filename,
+        "tamano_bytes": len(contenido),
+        "tipo_mime": archivo_info.content_type or "application/pdf",
+    }
 
 def _map_medicamentos_resultado(items: list[dict[str, Any]]) -> list[DireccionamientoMedicamentoResultado]:
     return [DireccionamientoMedicamentoResultado(**m) for m in items]
@@ -2097,6 +2157,12 @@ def registrar_autorizacion_orden_medica_ips(
                 }
         )
 
+        # Guardar físicamente
+        archivo_fisico = guardar_archivo_fisico(
+            archivo_info=soporte_orden_medica,
+            consecutivo_solicitud =int(out["consecutivo_solicitud"])
+        )
+
         return AutorizacionOrdenMedicaIpsResponse(
             consecutivo_solicitud=int(out["consecutivo_solicitud"]),
             consecutivo_solicitud_ips=int(out["consecutivo_solicitud_ips"]),
@@ -2363,6 +2429,12 @@ def activar_autorizacion_orden_medica_ips_endpoint(
             consecutivo_autorizacion=int(out["consecutivo_autorizacion"])
         )
 
+# Guardar físicamente
+        archivo_fisico = guardar_archivo_fisico(
+            archivo_info=soporte_confirmacion,
+            consecutivo_solicitud =int(out["consecutivo_solicitud"])
+        )
+        
         return ActivacionOrdenMedicaIpsResponse(
             consecutivo_autorizacion=int(out["consecutivo_autorizacion"]),
             consecutivo_interno=str(out["consecutivo_interno"]),

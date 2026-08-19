@@ -1678,3 +1678,94 @@ class MessiahDireccionamientoRepository:
             username=username,
             tipo_doc_abrev=tipo_doc_abrev,
         )
+
+
+    def fetch_tarifarios_por_cods(
+        self,
+        ips: int,
+        municipio_afiliado: str,
+        codigos: list[str],
+    ) -> dict[str, dict[str, Any] | None]:
+        if not codigos:
+            return {}
+
+        valores = [c.strip() for c in codigos if c and c.strip()]
+        if not valores:
+            return {}
+
+        sql = """
+        SELECT
+            tm.codigo_interno,
+            tm.valor_servicio,
+            tm.sw_activo,
+            tm.sw_automatico,
+            tm.descripcion,
+            tm.numero_contrato
+        FROM administrativo.tb_tarifario_medicamento tm
+        INNER JOIN administrativo.tb_contrato c
+            ON c.consecutivo_contrato = tm.consecutivo_contrato
+        WHERE c.consecutivo_ips = :ips
+        AND c.sw_activo = 1
+        AND c.municipio_afiliado = :municipio_afiliado
+        AND tm.codigo_interno IN :codigos
+        """
+        rows = self.db.execute(
+            text(sql),
+            {
+                "ips": int(ips),
+                "municipio_afiliado": (municipio_afiliado or "").strip(),
+                "codigos": tuple(valores),
+            },
+        ).mappings().all()
+
+        resultado: dict[str, dict[str, Any] | None] = {}
+        for codigo in valores:
+            resultado[codigo] = None
+
+        for row in rows:
+            resultado[str(row["codigo_interno"])] = dict(row)
+
+        return resultado
+
+    def fetch_medicamentos_en_direccionamiento(self, ips: int, medicamento_ids: list[int]) -> set[int]:
+        if not medicamento_ids:
+            return set()
+
+        rows = self.db.execute(
+            text(
+                """
+                SELECT consecutivo_medicamento
+                FROM administrativo.tb_direccionamiento_medicamento
+                WHERE ips = :ips
+                AND consecutivo_medicamento IN :medicamento_ids
+                """
+            ),
+            {"ips": int(ips), "medicamento_ids": tuple(medicamento_ids)},
+        ).all()
+
+        return {int(r[0]) for r in rows}
+
+
+    def fetch_medicamentos_por_cums(self, cums: list[str]) -> dict[str, dict[str, Any] | None]:
+        if not cums:
+            return {}
+
+        valores = [c.strip() for c in cums if c and c.strip()]
+        if not valores:
+            return {}
+
+        sql = """
+        SELECT *
+        FROM administrativo.tb_medicamento
+        WHERE cum IN :cums
+        """
+        rows = self.db.execute(text(sql), {"cums": tuple(valores)}).mappings().all()
+
+        resultado: dict[str, dict[str, Any] | None] = {}
+        for cum in valores:
+            resultado[cum] = None
+
+        for row in rows:
+            resultado[str(row["cum"])] = dict(row)
+
+        return resultado
